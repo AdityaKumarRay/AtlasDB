@@ -143,6 +143,7 @@ AtlasDB now includes a pager-backed table-store primitive for row-page managemen
 - Appends target the last data page and allocate a new row page when the tail page is full.
 - Row reads validate that the requested row page belongs to the table directory.
 - Row scans traverse data pages in directory order and validate scanned row count against directory metadata.
+- Persistence-mode SELECT currently consumes decoded table-store scan rows.
 
 Deterministic table-store error codes currently used:
 

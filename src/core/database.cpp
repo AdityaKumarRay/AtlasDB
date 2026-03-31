@@ -13,6 +13,8 @@
 
 #include "atlasdb/parser/ast.hpp"
 #include "atlasdb/parser/parser.hpp"
+#include "atlasdb/storage/row_codec.hpp"
+#include "atlasdb/storage/table_store.hpp"
 #include "atlasdb/version.hpp"
 
 namespace atlasdb {
@@ -44,6 +46,15 @@ std::string Trim(std::string_view input) {
   }
 
   return std::string(begin, end);
+}
+
+std::string NormalizeIdentifier(std::string_view identifier) {
+  std::string normalized(identifier);
+  for (char& value : normalized) {
+    value = static_cast<char>(std::tolower(static_cast<unsigned char>(value)));
+  }
+
+  return normalized;
 }
 
 std::string EscapeSingleQuotes(std::string_view input) {
@@ -144,6 +155,12 @@ DatabaseEngine::DatabaseEngine(std::string database_path) {
   const Status load_status = LoadCatalogSnapshotFromPager();
   if (!load_status.ok) {
     startup_error_ = load_status.message;
+    return;
+  }
+
+  const Status rebuild_status = RebuildTableStoresFromCatalog();
+  if (!rebuild_status.ok) {
+    startup_error_ = rebuild_status.message;
     return;
   }
 
@@ -291,6 +308,45 @@ Status DatabaseEngine::PersistCatalogSnapshotToPager() {
   return Status::Ok("persisted catalog snapshot");
 }
 
+Status DatabaseEngine::RebuildTableStoresFromCatalog() {
+  table_store_roots_.clear();
+
+  if (!persistence_enabled_ || pager_ == nullptr) {
+    return Status::Ok();
+  }
+
+  storage::TableStore table_store(pager_.get());
+  const std::vector<catalog::TableSnapshot> tables = catalog_.SnapshotTables();
+
+  for (const catalog::TableSnapshot& table : tables) {
+    std::uint32_t root_page_id = 0U;
+    const storage::TableStoreStatus init_status = table_store.Initialize(&root_page_id);
+    if (!init_status.ok) {
+      return Status::Error(init_status.code + ": " + init_status.message);
+    }
+
+    for (const std::vector<parser::ValueLiteral>& row : table.rows) {
+      std::vector<std::uint8_t> row_bytes;
+      const storage::RowCodecStatus encode_status =
+          storage::SerializeRow(table.columns, row, &row_bytes);
+      if (!encode_status.ok) {
+        return Status::Error(encode_status.code + ": " + encode_status.message);
+      }
+
+      storage::TableRowLocation location;
+      const storage::TableStoreStatus append_status =
+          table_store.AppendRow(root_page_id, row_bytes, &location);
+      if (!append_status.ok) {
+        return Status::Error(append_status.code + ": " + append_status.message);
+      }
+    }
+
+    table_store_roots_.emplace(NormalizeIdentifier(table.name), root_page_id);
+  }
+
+  return Status::Ok("rebuilt table-store pages from catalog snapshot");
+}
+
 Status DatabaseEngine::Execute(std::string_view statement) {
   if (!startup_error_.empty()) {
     last_message_ = startup_error_;
@@ -339,6 +395,12 @@ Status DatabaseEngine::Execute(std::string_view statement) {
       return Status::Error(last_message_);
     }
 
+    const Status rebuild_status = RebuildTableStoresFromCatalog();
+    if (!rebuild_status.ok) {
+      last_message_ = rebuild_status.message;
+      return Status::Error(last_message_);
+    }
+
     last_message_ = create_status.message;
     return Status::Ok(last_message_);
   }
@@ -357,6 +419,12 @@ Status DatabaseEngine::Execute(std::string_view statement) {
       return Status::Error(last_message_);
     }
 
+    const Status rebuild_status = RebuildTableStoresFromCatalog();
+    if (!rebuild_status.ok) {
+      last_message_ = rebuild_status.message;
+      return Status::Error(last_message_);
+    }
+
     last_message_ = insert_status.message;
     return Status::Ok(last_message_);
   }
@@ -369,9 +437,44 @@ Status DatabaseEngine::Execute(std::string_view statement) {
       return Status::Error(last_message_);
     }
 
-    last_message_ = select_result.status.message;
-    if (!select_result.rows.empty()) {
-      last_message_ += ": " + FormatRows(select_result.rows);
+    std::vector<std::vector<parser::ValueLiteral>> result_rows = select_result.rows;
+
+    if (persistence_enabled_ && pager_ != nullptr) {
+      const std::string normalized_table = NormalizeIdentifier(select_statement.table_name);
+      const auto root_iter = table_store_roots_.find(normalized_table);
+      if (root_iter != table_store_roots_.end()) {
+        storage::TableStore table_store(pager_.get());
+        std::vector<storage::StoredTableRow> stored_rows;
+        const storage::TableStoreStatus scan_status = table_store.ScanRows(root_iter->second, &stored_rows);
+        if (!scan_status.ok) {
+          last_message_ = scan_status.code + ": " + scan_status.message;
+          return Status::Error(last_message_);
+        }
+
+        std::vector<std::vector<parser::ValueLiteral>> decoded_rows;
+        decoded_rows.reserve(stored_rows.size());
+
+        for (const storage::StoredTableRow& stored_row : stored_rows) {
+          std::vector<parser::ValueLiteral> decoded_row;
+          const storage::RowCodecStatus decode_status =
+              storage::DeserializeRow(select_result.columns, stored_row.row_bytes, &decoded_row);
+          if (!decode_status.ok) {
+            last_message_ = decode_status.code + ": " + decode_status.message;
+            return Status::Error(last_message_);
+          }
+
+          decoded_rows.push_back(std::move(decoded_row));
+        }
+
+        result_rows = std::move(decoded_rows);
+      }
+    }
+
+    last_message_ =
+        "selected " + std::to_string(static_cast<unsigned long long>(result_rows.size())) +
+        " row(s) from '" + select_statement.table_name + "'";
+    if (!result_rows.empty()) {
+      last_message_ += ": " + FormatRows(result_rows);
     }
 
     return Status::Ok(last_message_);
@@ -391,6 +494,12 @@ Status DatabaseEngine::Execute(std::string_view statement) {
       return Status::Error(last_message_);
     }
 
+    const Status rebuild_status = RebuildTableStoresFromCatalog();
+    if (!rebuild_status.ok) {
+      last_message_ = rebuild_status.message;
+      return Status::Error(last_message_);
+    }
+
     last_message_ = update_status.message;
     return Status::Ok(last_message_);
   }
@@ -405,6 +514,12 @@ Status DatabaseEngine::Execute(std::string_view statement) {
   const Status persist_status = PersistCatalogSnapshotToPager();
   if (!persist_status.ok) {
     last_message_ = persist_status.message;
+    return Status::Error(last_message_);
+  }
+
+  const Status rebuild_status = RebuildTableStoresFromCatalog();
+  if (!rebuild_status.ok) {
+    last_message_ = rebuild_status.message;
     return Status::Error(last_message_);
   }
 

@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 #include "atlasdb/catalog/memory_catalog.hpp"
 #include "atlasdb/storage/pager.hpp"
@@ -29,9 +30,11 @@ class DatabaseEngine {
  private:
   [[nodiscard]] Status LoadCatalogSnapshotFromPager();
   [[nodiscard]] Status PersistCatalogSnapshotToPager();
+    [[nodiscard]] Status RebuildTableStoresFromCatalog();
 
   catalog::MemoryCatalog catalog_;
   std::unique_ptr<storage::Pager> pager_{};
+  std::unordered_map<std::string, std::uint32_t> table_store_roots_{};
   std::uint64_t schema_epoch_{0};
   bool persistence_enabled_{false};
   std::string startup_error_{};

@@ -18,6 +18,7 @@
 
 - CREATE TABLE, INSERT, SELECT \* FROM, UPDATE, and DELETE are executed against an in-memory catalog.
 - The same statement set supports optional startup/load persistence when the engine is opened with a file path.
+- In persistence mode, SELECT now decodes rows from table-store scans (directory-managed row pages).
 - Table and column identifiers are resolved case-insensitively.
 - Runtime checks currently enforced:
   - duplicate table names,
@@ -40,6 +41,7 @@ Persistence note:
 - low-level pager and page/header codecs are implemented,
 - catalog snapshot persistence is implemented for successful mutating statements,
 - table-store storage primitives now support append/read/scan across directory-managed row pages,
+- mutating statements currently rebuild table-store pages from catalog snapshots after each successful write,
 - table/index page-oriented physical operators are still planned.
 
 ## Determinism Requirements

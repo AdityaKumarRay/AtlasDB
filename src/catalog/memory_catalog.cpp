@@ -606,6 +606,30 @@ CatalogStatus MemoryCatalog::Deserialize(const std::vector<std::uint8_t>& bytes)
   return CatalogStatus::Ok("loaded catalog snapshot");
 }
 
+std::vector<TableSnapshot> MemoryCatalog::SnapshotTables() const {
+  std::vector<TableSnapshot> snapshots;
+  snapshots.reserve(tables_.size());
+
+  std::vector<std::string> table_keys;
+  table_keys.reserve(tables_.size());
+  for (const auto& entry : tables_) {
+    table_keys.push_back(entry.first);
+  }
+  std::sort(table_keys.begin(), table_keys.end());
+
+  for (const std::string& table_key : table_keys) {
+    const Table& table = tables_.at(table_key);
+
+    TableSnapshot snapshot;
+    snapshot.name = table.name;
+    snapshot.columns = table.columns;
+    snapshot.rows = table.rows;
+    snapshots.push_back(std::move(snapshot));
+  }
+
+  return snapshots;
+}
+
 bool MemoryCatalog::HasTable(std::string_view table_name) const {
   return tables_.contains(NormalizeIdentifier(table_name));
 }

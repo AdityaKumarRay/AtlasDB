@@ -27,6 +27,12 @@ struct SelectResult {
   std::vector<std::vector<parser::ValueLiteral>> rows;
 };
 
+struct TableSnapshot {
+  std::string name;
+  std::vector<parser::ColumnDefinition> columns;
+  std::vector<std::vector<parser::ValueLiteral>> rows;
+};
+
 class MemoryCatalog {
  public:
   MemoryCatalog() = default;
@@ -38,6 +44,7 @@ class MemoryCatalog {
   [[nodiscard]] CatalogStatus DeleteWhereEquals(const parser::DeleteStatement& statement);
   [[nodiscard]] CatalogStatus Serialize(std::vector<std::uint8_t>* out_bytes) const;
   [[nodiscard]] CatalogStatus Deserialize(const std::vector<std::uint8_t>& bytes);
+  [[nodiscard]] std::vector<TableSnapshot> SnapshotTables() const;
 
   [[nodiscard]] bool HasTable(std::string_view table_name) const;
   [[nodiscard]] std::size_t RowCount(std::string_view table_name) const;

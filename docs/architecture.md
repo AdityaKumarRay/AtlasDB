@@ -39,6 +39,7 @@ Current implemented execution path:
 - startup reloads latest snapshot using page-0 metadata (`catalog_root_page`, `schema_epoch`).
 - storage primitives now include typed row codec plus slotted row-page append/read/count layout utilities.
 - storage also includes a pager-backed table-store directory for managing row-data pages and row locations.
+- persistence-mode SELECT reads are decoded from table-store scans while write execution remains catalog-first.
 
 ## Invariants
 

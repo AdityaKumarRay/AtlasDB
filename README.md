@@ -6,7 +6,18 @@ The project is inspired by incremental database-kernel tutorials, but its archit
 
 ## Current Status
 
-Phase 0 foundation is in place:
+Phase-wise progress:
+
+- [x] Phase 0: Project foundation, CI matrix, and repo hygiene.
+- [x] Phase 1: Deterministic parser + diagnostics for CREATE/INSERT/SELECT/UPDATE/DELETE.
+- [x] Phase 2: In-memory catalog execution for CRUD with deterministic runtime checks.
+- [-] Phase 3: Pager-backed persistence foundations and page-native table storage primitives.
+- [ ] Phase 4: B+ tree primary index + cursor abstraction.
+- [ ] Phase 5: Secondary indexes, planner, prepared statements.
+- [ ] Phase 6: Transactions, WAL, checkpoint, recovery.
+- [ ] Phase 7: Hardening, benchmarks, and release-readiness polish.
+
+Current Phase 3 capabilities in place:
 
 - C++20 + CMake project layout.
 - Strict compiler warning policy.
@@ -15,7 +26,8 @@ Phase 0 foundation is in place:
 - Storage foundation includes page/header codecs plus pager file I/O and page allocation primitives.
 - Typed row codec foundation for INTEGER/TEXT literal serialization and validation.
 - Slotted row-page foundation for deterministic row append/read within fixed-size pages.
-- Pager-backed table-store primitive for directory-managed row pages and row-location reads.
+- Pager-backed table-store primitive for directory-managed row pages, row-location reads, and ordered scans.
+- Persistence-mode SELECT path decodes rows from table-store scans, while mutating statements still use catalog-first execution.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
