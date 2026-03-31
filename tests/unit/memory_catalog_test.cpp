@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -197,6 +198,76 @@ TEST(MemoryCatalog, RejectsDeleteWhenRowMissing) {
   ASSERT_FALSE(deletion.ok);
   EXPECT_EQ(deletion.code, "E2009");
   EXPECT_EQ(deletion.message, "row not found for key match in table 'users'");
+}
+
+TEST(MemoryCatalog, SnapshotRoundTripPreservesRows) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+  ASSERT_TRUE(catalog.InsertRow(UserInsertStatement(1, "alice")).ok);
+  ASSERT_TRUE(catalog.InsertRow(UserInsertStatement(2, "bob")).ok);
+
+  std::vector<std::uint8_t> bytes;
+  const atlasdb::catalog::CatalogStatus serialize = catalog.Serialize(&bytes);
+  ASSERT_TRUE(serialize.ok);
+  ASSERT_FALSE(bytes.empty());
+
+  atlasdb::catalog::MemoryCatalog restored;
+  const atlasdb::catalog::CatalogStatus deserialize = restored.Deserialize(bytes);
+  ASSERT_TRUE(deserialize.ok);
+
+  const atlasdb::catalog::SelectResult selected = restored.SelectAll(atlasdb::parser::SelectStatement{"users"});
+  ASSERT_TRUE(selected.status.ok);
+  ASSERT_EQ(selected.rows.size(), 2U);
+  EXPECT_EQ(std::get<std::int64_t>(selected.rows[0][0].value), 1);
+  EXPECT_EQ(std::get<std::string>(selected.rows[0][1].value), "alice");
+  EXPECT_EQ(std::get<std::int64_t>(selected.rows[1][0].value), 2);
+  EXPECT_EQ(std::get<std::string>(selected.rows[1][1].value), "bob");
+}
+
+TEST(MemoryCatalog, SnapshotSerializeRejectsNullOutputBuffer) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  const atlasdb::catalog::CatalogStatus serialize = catalog.Serialize(nullptr);
+
+  ASSERT_FALSE(serialize.ok);
+  EXPECT_EQ(serialize.code, "E2020");
+  EXPECT_EQ(serialize.message, "output snapshot pointer is null");
+}
+
+TEST(MemoryCatalog, SnapshotDeserializeRejectsUnsupportedVersion) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+
+  std::vector<std::uint8_t> bytes;
+  ASSERT_TRUE(catalog.Serialize(&bytes).ok);
+  ASSERT_GE(bytes.size(), 12U);
+
+  bytes[8] = 2U;
+  bytes[9] = 0U;
+  bytes[10] = 0U;
+  bytes[11] = 0U;
+
+  atlasdb::catalog::MemoryCatalog restored;
+  const atlasdb::catalog::CatalogStatus deserialize = restored.Deserialize(bytes);
+
+  ASSERT_FALSE(deserialize.ok);
+  EXPECT_EQ(deserialize.code, "E2022");
+  EXPECT_EQ(deserialize.message, "unsupported catalog snapshot version");
+}
+
+TEST(MemoryCatalog, SnapshotDeserializeRejectsTrailingBytes) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+
+  std::vector<std::uint8_t> bytes;
+  ASSERT_TRUE(catalog.Serialize(&bytes).ok);
+  bytes.push_back(0xFFU);
+
+  atlasdb::catalog::MemoryCatalog restored;
+  const atlasdb::catalog::CatalogStatus deserialize = restored.Deserialize(bytes);
+
+  ASSERT_FALSE(deserialize.ok);
+  EXPECT_EQ(deserialize.code, "E2027");
+  EXPECT_EQ(deserialize.message, "catalog snapshot contains trailing bytes");
 }
 
 }  // namespace
