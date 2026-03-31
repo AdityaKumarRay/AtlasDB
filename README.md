@@ -96,13 +96,17 @@ cmake --build build
 
 ## Run
 
-Start REPL:
+Start REPL (in-memory):
 
 ```bash
 ./build/atlasdb_cli
 ```
 
-The CLI currently uses an in-memory engine for interactive sessions.
+Start REPL with persisted catalog snapshots:
+
+```bash
+./build/atlasdb_cli atlas.db
+```
 
 To use persisted catalog snapshots from C++ code, construct the engine with a database path:
 
