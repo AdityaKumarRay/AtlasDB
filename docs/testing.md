@@ -16,6 +16,7 @@ Current implemented persistence-focused coverage:
 - pager reopen persistence for page_count and page reads/writes,
 - catalog snapshot codec unit tests for round-trip, null output buffer, unsupported version, and trailing-byte rejection,
 - row codec unit tests for round-trip plus E3201/E3202/E3204/E3205/E3206 deterministic decode/encode failures.
+- slotted row-page tests for append/read/count behavior plus E3301/E3303/E3304/E3305 structural validation failures.
 
 ## Execution
 

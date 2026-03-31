@@ -37,6 +37,7 @@ Current implemented execution path:
 - parser -> in-memory catalog execution for CREATE/INSERT/SELECT/UPDATE/DELETE,
 - optional persistence mode (`DatabaseEngine(path)`) wires mutating statements to pager-backed catalog snapshots,
 - startup reloads latest snapshot using page-0 metadata (`catalog_root_page`, `schema_epoch`).
+- storage primitives now include typed row codec plus slotted row-page append/read/count layout utilities.
 
 ## Invariants
 

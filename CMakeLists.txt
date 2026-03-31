@@ -29,6 +29,7 @@ add_library(atlasdb STATIC
   src/storage/pager.cpp
   src/storage/page.cpp
   src/storage/row_codec.cpp
+  src/storage/row_page.cpp
 )
 add_library(AtlasDB::atlasdb ALIAS atlasdb)
 

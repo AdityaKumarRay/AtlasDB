@@ -106,6 +106,30 @@ Deterministic row-codec error codes currently used:
 - `E3205` schema/tag mismatch while decoding,
 - `E3206` trailing bytes after decoding.
 
+## Implemented Slotted Row Page Foundations (Current)
+
+AtlasDB now includes a deterministic slotted row-page primitive.
+
+- Page header (8 bytes) stores:
+  - format version,
+  - row count,
+  - free-start pointer (slot directory end),
+  - free-end pointer (row payload start).
+- Slot directory entries are 4 bytes each:
+  - 16-bit row offset,
+  - 16-bit row size.
+- Appends are stable by slot order and grow the slot directory upward while row payload grows downward.
+
+Deterministic row-page error codes currently used:
+
+- `E3300` null pointer for page/output arguments,
+- `E3301` invalid row-page header/layout invariants,
+- `E3302` row/slot limit overflow,
+- `E3303` insufficient free space for new row payload + slot entry,
+- `E3304` slot index out of range,
+- `E3305` invalid slot payload range during read,
+- `E3306` empty row payload append.
+
 ## WAL Overview
 
 - Append-only log records with checksums.
