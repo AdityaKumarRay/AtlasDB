@@ -25,6 +25,8 @@ add_library(atlasdb STATIC
   src/catalog/memory_catalog.cpp
   src/core/database.cpp
   src/parser/parser.cpp
+  src/storage/file_header.cpp
+  src/storage/page.cpp
 )
 add_library(AtlasDB::atlasdb ALIAS atlasdb)
 

@@ -19,6 +19,28 @@
 - Data pages: table rows in slotted-page layout
 - Index pages: B+ tree leaf/internal node layouts
 
+## Implemented Header Page (Current)
+
+The current implementation serializes and validates the database file header in page 0.
+
+Header fields currently encoded:
+
+- magic bytes (`ATLASDB\0`)
+- format version (`kFileFormatVersion`)
+- page size (`kPageSize`)
+- page count
+- catalog root page id
+- schema epoch
+- checkpoint LSN
+
+Validation currently enforced during deserialization:
+
+- magic must match expected bytes,
+- format version must be supported,
+- page size must match build-time page size,
+- page count must be non-zero,
+- catalog root page must be within page-count bounds when non-zero.
+
 ## WAL Overview
 
 - Append-only log records with checksums.

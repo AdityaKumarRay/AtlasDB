@@ -12,6 +12,7 @@ Phase 0 foundation is in place:
 - Strict compiler warning policy.
 - GoogleTest test harness.
 - REPL plus deterministic parser and in-memory execution for CREATE TABLE, INSERT, SELECT, UPDATE, and DELETE.
+- Storage foundation started: fixed-size page primitive and deterministic file-header serialization checks.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
 ## Project Goals
@@ -46,6 +47,17 @@ The database file will use fixed-size pages with a versioned file header.
 - Catalog pages store schema metadata.
 - Data and index pages use B+ tree node layouts.
 - WAL records are checksummed and replayed on startup.
+
+Current implemented foundation:
+
+- Page primitive with a fixed 4096-byte page size.
+- Header page codec with magic validation.
+- Deterministic header validation error codes:
+  - `E3001` invalid file magic,
+  - `E3002` unsupported file format version,
+  - `E3003` unsupported page size,
+  - `E3004` invalid page count,
+  - `E3005` catalog root page out of range.
 
 ## Build
 
