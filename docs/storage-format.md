@@ -212,6 +212,26 @@ Deterministic internal-node error codes currently used:
 - `E5204` appended separator key is not strictly increasing,
 - `E5205` separator entry index out of range.
 
+## Implemented B+ Tree Cursor Foundations (Current)
+
+AtlasDB now includes a deterministic cursor primitive for traversing linked leaf pages.
+
+- Cursor operations read leaf pages through the pager and validate each page layout before access.
+- `SeekFirst` positions at the first available entry in a linked leaf chain.
+- `Seek` performs lower-bound positioning (exact key or next greater key) across leaf links.
+- `Next` advances within a leaf and then across `next-leaf` links.
+- Empty leaves are skipped deterministically during traversal.
+- Cursor traversal is bounded by declared page count to detect chain-integrity issues.
+
+Deterministic cursor error codes currently used:
+
+- `E5300` null pointer argument,
+- `E5301` pager unavailable/not open for cursor operations,
+- `E5302` invalid starting leaf page id,
+- `E5303` pager read failure during cursor traversal,
+- `E5304` cursor not positioned on a valid entry,
+- `E5305` leaf-chain traversal integrity failure.
+
 ## WAL Overview
 
 - Append-only log records with checksums.

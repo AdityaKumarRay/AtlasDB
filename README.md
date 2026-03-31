@@ -34,6 +34,7 @@ Current capabilities in place:
 - Persistence-mode DELETE now rebuilds only the deleted table's table-store pages after catalog+snapshot success, with deterministic fallback to full rebuild on table-scoped rebuild failures.
 - Phase 4 kickoff: deterministic B+ tree leaf-node page primitive with append/read/search/next-leaf operations.
 - Phase 4 progress: deterministic B+ tree internal-node page primitive with ordered separator keys and child-page routing.
+- Phase 4 progress: deterministic pager-backed linked-leaf cursor primitive with seek/next traversal.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
@@ -152,6 +153,15 @@ B+ tree internal-node errors:
 - `E5203` internal node is full,
 - `E5204` appended separator key is not strictly increasing,
 - `E5205` separator entry index out of range.
+
+B+ tree cursor errors:
+
+- `E5300` null pointer for required output/argument,
+- `E5301` cursor pager is unavailable or not open,
+- `E5302` starting leaf page id is invalid,
+- `E5303` pager read failed during cursor traversal,
+- `E5304` cursor is not positioned on a valid entry,
+- `E5305` leaf-chain traversal integrity failure.
 
 ## Build
 

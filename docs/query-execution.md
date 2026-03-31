@@ -49,7 +49,7 @@ Persistence note:
 - UPDATE uses table-scoped table-store rebuild with deterministic full-rebuild fallback if table-scoped rebuild checks fail,
 - DELETE uses table-scoped table-store rebuild with deterministic full-rebuild fallback if table-scoped rebuild checks fail,
 - INSERT uses direct table-store append with deterministic rebuild fallback if append-path consistency checks fail,
-- index-page primitives now include deterministic B+ tree leaf/internal node layouts and validations,
+- index-page primitives now include deterministic B+ tree leaf/internal node layouts plus linked-leaf cursor traversal foundations,
 - table/index page-oriented physical operators are still planned.
 
 ## Determinism Requirements

@@ -46,6 +46,7 @@ Current implemented execution path:
 - persistence-mode DELETE now rebuilds only the affected table-store from catalog rows, with fallback to full table-store rebuild.
 - index layer now includes a deterministic B+ tree leaf-node primitive for ordered key/row-location entries and next-leaf links.
 - index layer now also includes a deterministic B+ tree internal-node primitive for ordered separators and child-page routing.
+- index layer now includes a deterministic pager-backed linked-leaf cursor primitive for seek and next traversal.
 
 ## Invariants
 
