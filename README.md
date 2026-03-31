@@ -39,6 +39,7 @@ Current capabilities in place:
 - Phase 4 progress: deterministic internal separator insertion and root-from-split initialization helpers for split-propagation scaffolding.
 - Phase 4 progress: deterministic internal split primitive that emits promoted separator metadata for parent split propagation.
 - Phase 4 progress: deterministic pager-backed B+ tree index primitive for insert/find, recursive split propagation, and root growth.
+- Phase 4 hardening: deterministic seeded random-insert stress test now validates subtree key-range invariants and linked-leaf traversal consistency under heavy split workloads.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
