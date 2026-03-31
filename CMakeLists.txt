@@ -30,6 +30,7 @@ add_library(atlasdb STATIC
   src/storage/page.cpp
   src/storage/row_codec.cpp
   src/storage/row_page.cpp
+  src/storage/table_store.cpp
 )
 add_library(AtlasDB::atlasdb ALIAS atlasdb)
 

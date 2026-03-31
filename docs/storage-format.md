@@ -130,6 +130,28 @@ Deterministic row-page error codes currently used:
 - `E3305` invalid slot payload range during read,
 - `E3306` empty row payload append.
 
+## Implemented Table Store Foundations (Current)
+
+AtlasDB now includes a pager-backed table-store primitive for row-page management.
+
+- Table root page stores a directory header with:
+  - magic (`ATLTDIR\0`),
+  - directory format version,
+  - data-page count,
+  - total row count.
+- Directory entries are 32-bit row-data page ids.
+- Appends target the last data page and allocate a new row page when the tail page is full.
+- Row reads validate that the requested row page belongs to the table directory.
+
+Deterministic table-store error codes currently used:
+
+- `E3400` null pointer argument,
+- `E3401` pager not open,
+- `E3402` invalid directory layout/version,
+- `E3403` pager read/write/allocate failure wrapper,
+- `E3405` row location page does not belong to table,
+- `E3406` directory entry capacity exhausted.
+
 ## WAL Overview
 
 - Append-only log records with checksums.

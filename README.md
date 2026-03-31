@@ -15,6 +15,7 @@ Phase 0 foundation is in place:
 - Storage foundation includes page/header codecs plus pager file I/O and page allocation primitives.
 - Typed row codec foundation for INTEGER/TEXT literal serialization and validation.
 - Slotted row-page foundation for deterministic row append/read within fixed-size pages.
+- Pager-backed table-store primitive for directory-managed row pages and row-location reads.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
@@ -61,6 +62,7 @@ Current implemented foundation:
 - Catalog snapshot persistence metadata via page-0 `catalog_root_page` and `schema_epoch` updates.
 - Typed row codec for deterministic row-value encode/decode against schema columns.
 - Slotted row-page layout primitives for row count, append, and slot-based read.
+- Table-store layout for root directory pages that track row-data pages across pager reopen.
 - Deterministic header validation error codes:
   - `E3001` invalid file magic,
   - `E3002` unsupported file format version,
@@ -103,6 +105,15 @@ Row page errors:
 - `E3304` slot index out of range,
 - `E3305` corrupt slot payload range,
 - `E3306` empty row payload append.
+
+Table store errors:
+
+- `E3400` null pointer for required output/argument,
+- `E3401` table-store pager not open,
+- `E3402` invalid table-directory page layout/version,
+- `E3403` pager operation failure while loading/writing table-store pages,
+- `E3405` requested row page is not part of table directory,
+- `E3406` table-directory entry capacity reached.
 
 ## Build
 
