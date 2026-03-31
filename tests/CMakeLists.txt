@@ -11,6 +11,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 add_executable(atlasdb_unit_smoke
+  unit/parser_test.cpp
   unit/smoke_test.cpp
 )
 

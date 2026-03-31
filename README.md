@@ -11,7 +11,7 @@ Phase 0 foundation is in place:
 - C++20 + CMake project layout.
 - Strict compiler warning policy.
 - GoogleTest test harness.
-- Minimal REPL shell and deterministic engine stub.
+- REPL plus deterministic parser support for CREATE TABLE and INSERT.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
 ## Project Goals
@@ -76,8 +76,10 @@ AtlasDB 0.1.0
 Enter SQL-like statements. Use .exit to quit.
 atlasdb> .version
 ok: AtlasDB 0.1.0
-atlasdb> select 1
-ok: accepted statement: select 1
+atlasdb> CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
+ok: accepted CREATE TABLE for table 'users'
+atlasdb> INSERT INTO users VALUES (1, 'alice');
+ok: accepted INSERT for table 'users' with 2 value(s)
 atlasdb> .exit
 ```
 

@@ -5,12 +5,12 @@
 
 namespace {
 
-TEST(DatabaseEngineSmoke, AcceptsBasicStatement) {
+TEST(DatabaseEngineSmoke, AcceptsCreateTableStatement) {
   atlasdb::DatabaseEngine engine;
-  const atlasdb::Status status = engine.Execute("select 1");
+  const atlasdb::Status status = engine.Execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);");
 
   EXPECT_TRUE(status.ok);
-  EXPECT_EQ(status.message, "accepted statement: select 1");
+  EXPECT_EQ(status.message, "accepted CREATE TABLE for table 'users'");
 }
 
 TEST(DatabaseEngineSmoke, RejectsEmptyStatement) {
@@ -27,6 +27,14 @@ TEST(DatabaseEngineSmoke, ReportsUnknownMetaCommand) {
 
   EXPECT_FALSE(status.ok);
   EXPECT_EQ(status.message, "E0002: unknown meta command");
+}
+
+TEST(DatabaseEngineSmoke, RejectsUnsupportedStatement) {
+  atlasdb::DatabaseEngine engine;
+  const atlasdb::Status status = engine.Execute("SELECT 1");
+
+  EXPECT_FALSE(status.ok);
+  EXPECT_EQ(status.message, "E1200: unsupported statement; expected CREATE TABLE or INSERT INTO");
 }
 
 TEST(VersionSmoke, VersionStringIsPresent) {

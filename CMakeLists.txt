@@ -23,6 +23,7 @@ endif()
 
 add_library(atlasdb STATIC
   src/core/database.cpp
+  src/parser/parser.cpp
 )
 add_library(AtlasDB::atlasdb ALIAS atlasdb)
 

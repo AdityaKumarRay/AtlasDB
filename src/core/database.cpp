@@ -3,7 +3,10 @@
 #include <cctype>
 #include <string>
 #include <utility>
+#include <variant>
 
+#include "atlasdb/parser/ast.hpp"
+#include "atlasdb/parser/parser.hpp"
 #include "atlasdb/version.hpp"
 
 namespace atlasdb {
@@ -57,7 +60,22 @@ Status DatabaseEngine::Execute(std::string_view statement) {
     return Status::Error(last_message_);
   }
 
-  last_message_ = "accepted statement: " + trimmed;
+  const parser::ParseResult parse_result = parser::ParseSql(trimmed);
+  if (!parse_result.ok) {
+    last_message_ = parse_result.error.code + ": " + parse_result.error.message;
+    return Status::Error(last_message_);
+  }
+
+  if (std::holds_alternative<parser::CreateTableStatement>(parse_result.statement)) {
+    const auto& create_statement = std::get<parser::CreateTableStatement>(parse_result.statement);
+    last_message_ = "accepted CREATE TABLE for table '" + create_statement.table_name + "'";
+    return Status::Ok(last_message_);
+  }
+
+  const auto& insert_statement = std::get<parser::InsertStatement>(parse_result.statement);
+  last_message_ = "accepted INSERT for table '" + insert_statement.table_name + "' with " +
+                  std::to_string(static_cast<unsigned long long>(insert_statement.values.size())) +
+                  " value(s)";
   return Status::Ok(last_message_);
 }
 
