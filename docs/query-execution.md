@@ -9,9 +9,22 @@
 3. Plan
    - Select execution path: table scan or index scan.
 4. Execute
-   - Run operators and return row/result status.
+   - Run statement handlers and return deterministic runtime status.
 5. Persist
    - Route writes through pager and transaction/WAL path.
+
+## Current Runtime Scope
+
+- CREATE TABLE and INSERT are executed against an in-memory catalog.
+- Table and column identifiers are resolved case-insensitively.
+- Runtime checks currently enforced:
+  - duplicate table names,
+  - unknown table on insert,
+  - value count mismatch,
+  - literal type mismatch,
+  - duplicate PRIMARY KEY values.
+
+Runtime errors use deterministic `E2xxx` codes.
 
 ## Determinism Requirements
 

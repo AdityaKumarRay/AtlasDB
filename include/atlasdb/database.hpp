@@ -3,6 +3,8 @@
 #include <string>
 #include <string_view>
 
+#include "atlasdb/catalog/memory_catalog.hpp"
+
 namespace atlasdb {
 
 struct Status {
@@ -21,6 +23,7 @@ class DatabaseEngine {
   [[nodiscard]] std::string_view LastMessage() const noexcept;
 
  private:
+    catalog::MemoryCatalog catalog_;
   std::string last_message_{"AtlasDB initialized."};
 };
 

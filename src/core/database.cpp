@@ -68,14 +68,24 @@ Status DatabaseEngine::Execute(std::string_view statement) {
 
   if (std::holds_alternative<parser::CreateTableStatement>(parse_result.statement)) {
     const auto& create_statement = std::get<parser::CreateTableStatement>(parse_result.statement);
-    last_message_ = "accepted CREATE TABLE for table '" + create_statement.table_name + "'";
+    const catalog::CatalogStatus create_status = catalog_.CreateTable(create_statement);
+    if (!create_status.ok) {
+      last_message_ = create_status.code + ": " + create_status.message;
+      return Status::Error(last_message_);
+    }
+
+    last_message_ = create_status.message;
     return Status::Ok(last_message_);
   }
 
   const auto& insert_statement = std::get<parser::InsertStatement>(parse_result.statement);
-  last_message_ = "accepted INSERT for table '" + insert_statement.table_name + "' with " +
-                  std::to_string(static_cast<unsigned long long>(insert_statement.values.size())) +
-                  " value(s)";
+  const catalog::CatalogStatus insert_status = catalog_.InsertRow(insert_statement);
+  if (!insert_status.ok) {
+    last_message_ = insert_status.code + ": " + insert_status.message;
+    return Status::Error(last_message_);
+  }
+
+  last_message_ = insert_status.message;
   return Status::Ok(last_message_);
 }
 

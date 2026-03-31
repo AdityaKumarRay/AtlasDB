@@ -10,7 +10,34 @@ TEST(DatabaseEngineSmoke, AcceptsCreateTableStatement) {
   const atlasdb::Status status = engine.Execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);");
 
   EXPECT_TRUE(status.ok);
-  EXPECT_EQ(status.message, "accepted CREATE TABLE for table 'users'");
+  EXPECT_EQ(status.message, "created table 'users'");
+}
+
+TEST(DatabaseEngineSmoke, InsertsRowAfterCreateTable) {
+  atlasdb::DatabaseEngine engine;
+  ASSERT_TRUE(engine.Execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);").ok);
+
+  const atlasdb::Status status = engine.Execute("INSERT INTO users VALUES (1, 'alice');");
+  EXPECT_TRUE(status.ok);
+  EXPECT_EQ(status.message, "inserted 1 row into 'users'");
+}
+
+TEST(DatabaseEngineSmoke, RejectsDuplicatePrimaryKey) {
+  atlasdb::DatabaseEngine engine;
+  ASSERT_TRUE(engine.Execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);").ok);
+  ASSERT_TRUE(engine.Execute("INSERT INTO users VALUES (1, 'alice');").ok);
+
+  const atlasdb::Status duplicate = engine.Execute("INSERT INTO users VALUES (1, 'bob');");
+  EXPECT_FALSE(duplicate.ok);
+  EXPECT_EQ(duplicate.message, "E2006: duplicate primary key for table 'users'");
+}
+
+TEST(DatabaseEngineSmoke, RejectsInsertForUnknownTable) {
+  atlasdb::DatabaseEngine engine;
+
+  const atlasdb::Status status = engine.Execute("INSERT INTO users VALUES (1, 'alice');");
+  EXPECT_FALSE(status.ok);
+  EXPECT_EQ(status.message, "E2003: table not found: users");
 }
 
 TEST(DatabaseEngineSmoke, RejectsEmptyStatement) {
