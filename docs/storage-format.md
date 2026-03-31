@@ -41,6 +41,24 @@ Validation currently enforced during deserialization:
 - page count must be non-zero,
 - catalog root page must be within page-count bounds when non-zero.
 
+## Implemented Pager Foundations (Current)
+
+The current pager implementation provides deterministic file and page I/O primitives.
+
+Implemented behavior:
+
+- open existing database files and validate page-0 header,
+- create new database files with bootstrapped page-0 header,
+- read and write fixed-size pages by page id,
+- allocate new zeroed pages,
+- persist page_count updates through header rewrites.
+
+Current operational constraints:
+
+- page ids must be less than header.page_count for read/write,
+- newly allocated pages are appended at id = previous page_count,
+- SQL execution is still in-memory and not yet wired to pager-backed table storage.
+
 ## WAL Overview
 
 - Append-only log records with checksums.

@@ -12,7 +12,7 @@ Phase 0 foundation is in place:
 - Strict compiler warning policy.
 - GoogleTest test harness.
 - REPL plus deterministic parser and in-memory execution for CREATE TABLE, INSERT, SELECT, UPDATE, and DELETE.
-- Storage foundation started: fixed-size page primitive and deterministic file-header serialization checks.
+- Storage foundation includes page/header codecs plus pager file I/O and page allocation primitives.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
 ## Project Goals
@@ -52,12 +52,23 @@ Current implemented foundation:
 
 - Page primitive with a fixed 4096-byte page size.
 - Header page codec with magic validation.
+- Pager file open/create behavior with header bootstrap.
+- Page read/write by page id.
+- Deterministic page allocation that updates persisted page_count in page-0 header.
 - Deterministic header validation error codes:
   - `E3001` invalid file magic,
   - `E3002` unsupported file format version,
   - `E3003` unsupported page size,
   - `E3004` invalid page count,
   - `E3005` catalog root page out of range.
+- Deterministic pager validation/error codes:
+  - `E3101` pager/file open failures,
+  - `E3102` page read/seek failures,
+  - `E3103` declared page_count larger than on-disk file size,
+  - `E3104` page read out of range,
+  - `E3106` page write out of range,
+  - `E3107` page write/flush failures,
+  - `E3110` page id space exhaustion.
 
 ## Build
 
