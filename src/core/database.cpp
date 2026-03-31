@@ -347,6 +347,40 @@ Status DatabaseEngine::RebuildTableStoresFromCatalog() {
   return Status::Ok("rebuilt table-store pages from catalog snapshot");
 }
 
+Status DatabaseEngine::AppendInsertToTableStore(const parser::InsertStatement& statement) {
+  if (!persistence_enabled_ || pager_ == nullptr) {
+    return Status::Ok();
+  }
+
+  const std::string normalized_table = NormalizeIdentifier(statement.table_name);
+  const auto root_iter = table_store_roots_.find(normalized_table);
+  if (root_iter == table_store_roots_.end()) {
+    return Status::Error("E4005: table-store root not found for table '" + statement.table_name + "'");
+  }
+
+  const catalog::SelectResult select_result = catalog_.SelectAll(parser::SelectStatement{statement.table_name});
+  if (!select_result.status.ok) {
+    return Status::Error(select_result.status.code + ": " + select_result.status.message);
+  }
+
+  std::vector<std::uint8_t> row_bytes;
+  const storage::RowCodecStatus encode_status =
+      storage::SerializeRow(select_result.columns, statement.values, &row_bytes);
+  if (!encode_status.ok) {
+    return Status::Error(encode_status.code + ": " + encode_status.message);
+  }
+
+  storage::TableStore table_store(pager_.get());
+  storage::TableRowLocation location;
+  const storage::TableStoreStatus append_status =
+      table_store.AppendRow(root_iter->second, row_bytes, &location);
+  if (!append_status.ok) {
+    return Status::Error(append_status.code + ": " + append_status.message);
+  }
+
+  return Status::Ok("appended row into table-store page");
+}
+
 Status DatabaseEngine::Execute(std::string_view statement) {
   if (!startup_error_.empty()) {
     last_message_ = startup_error_;
@@ -419,10 +453,13 @@ Status DatabaseEngine::Execute(std::string_view statement) {
       return Status::Error(last_message_);
     }
 
-    const Status rebuild_status = RebuildTableStoresFromCatalog();
-    if (!rebuild_status.ok) {
-      last_message_ = rebuild_status.message;
-      return Status::Error(last_message_);
+    const Status append_status = AppendInsertToTableStore(insert_statement);
+    if (!append_status.ok) {
+      const Status rebuild_status = RebuildTableStoresFromCatalog();
+      if (!rebuild_status.ok) {
+        last_message_ = append_status.message;
+        return Status::Error(last_message_);
+      }
     }
 
     last_message_ = insert_status.message;

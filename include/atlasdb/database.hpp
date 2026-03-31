@@ -31,6 +31,7 @@ class DatabaseEngine {
   [[nodiscard]] Status LoadCatalogSnapshotFromPager();
   [[nodiscard]] Status PersistCatalogSnapshotToPager();
     [[nodiscard]] Status RebuildTableStoresFromCatalog();
+    [[nodiscard]] Status AppendInsertToTableStore(const parser::InsertStatement& statement);
 
   catalog::MemoryCatalog catalog_;
   std::unique_ptr<storage::Pager> pager_{};

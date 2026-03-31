@@ -187,6 +187,33 @@ TEST(DatabaseEngineSmoke, PersistenceModeSelectReflectsUpdateAndDeleteAcrossReop
   RemoveIfExists(path);
 }
 
+TEST(DatabaseEngineSmoke, PersistenceModeInsertOrderPersistsAcrossReopen) {
+  const std::filesystem::path path = UniqueDbPath();
+
+  {
+    atlasdb::DatabaseEngine writer(path.string());
+    ASSERT_TRUE(writer.Execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);").ok);
+    ASSERT_TRUE(writer.Execute("INSERT INTO users VALUES (1, 'alpha');").ok);
+    ASSERT_TRUE(writer.Execute("INSERT INTO users VALUES (2, 'beta');").ok);
+    ASSERT_TRUE(writer.Execute("INSERT INTO users VALUES (3, 'gamma');").ok);
+
+    const atlasdb::Status select = writer.Execute("SELECT * FROM users;");
+    ASSERT_TRUE(select.ok);
+    EXPECT_EQ(select.message,
+              "selected 3 row(s) from 'users': [1, 'alpha']; [2, 'beta']; [3, 'gamma']");
+  }
+
+  {
+    atlasdb::DatabaseEngine reader(path.string());
+    const atlasdb::Status select = reader.Execute("SELECT * FROM users;");
+    ASSERT_TRUE(select.ok);
+    EXPECT_EQ(select.message,
+              "selected 3 row(s) from 'users': [1, 'alpha']; [2, 'beta']; [3, 'gamma']");
+  }
+
+  RemoveIfExists(path);
+}
+
 TEST(DatabaseEngineSmoke, RejectsCorruptCatalogSnapshotOnStartup) {
   const std::filesystem::path path = UniqueDbPath();
 
