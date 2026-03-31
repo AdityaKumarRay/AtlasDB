@@ -14,7 +14,8 @@ Current implemented persistence-focused coverage:
 - restart round-trip for persisted catalog snapshots,
 - deterministic startup failure on corrupted snapshot magic,
 - pager reopen persistence for page_count and page reads/writes,
-- catalog snapshot codec unit tests for round-trip, null output buffer, unsupported version, and trailing-byte rejection.
+- catalog snapshot codec unit tests for round-trip, null output buffer, unsupported version, and trailing-byte rejection,
+- row codec unit tests for round-trip plus E3201/E3202/E3204/E3205/E3206 deterministic decode/encode failures.
 
 ## Execution
 

@@ -86,6 +86,26 @@ Deterministic snapshot-related error codes currently used:
 - `E4004` snapshot page-id overflow,
 - `E3108` invalid pager catalog-metadata update request.
 
+## Implemented Row Codec Foundations (Current)
+
+AtlasDB now includes a deterministic row codec for typed value payloads.
+
+- Row payload starts with a 16-bit column count.
+- Each value is prefixed with a 1-byte tag:
+  - `1` for INTEGER (stored as 8-byte little-endian signed payload),
+  - `2` for TEXT (stored as 4-byte length + raw bytes).
+- Decode validates schema shape and type tags against expected column types.
+
+Deterministic row-codec error codes currently used:
+
+- `E3200` output pointer is null,
+- `E3201` column/value count mismatch,
+- `E3202` value type mismatch for schema column,
+- `E3203` text literal exceeds codec size limit,
+- `E3204` truncated payload while decoding,
+- `E3205` schema/tag mismatch while decoding,
+- `E3206` trailing bytes after decoding.
+
 ## WAL Overview
 
 - Append-only log records with checksums.

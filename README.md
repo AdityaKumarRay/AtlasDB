@@ -13,6 +13,7 @@ Phase 0 foundation is in place:
 - GoogleTest test harness.
 - REPL plus deterministic parser and in-memory execution for CREATE TABLE, INSERT, SELECT, UPDATE, and DELETE.
 - Storage foundation includes page/header codecs plus pager file I/O and page allocation primitives.
+- Typed row codec foundation for INTEGER/TEXT literal serialization and validation.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
@@ -57,6 +58,7 @@ Current implemented foundation:
 - Page read/write by page id.
 - Deterministic page allocation that updates persisted page_count in page-0 header.
 - Catalog snapshot persistence metadata via page-0 `catalog_root_page` and `schema_epoch` updates.
+- Typed row codec for deterministic row-value encode/decode against schema columns.
 - Deterministic header validation error codes:
   - `E3001` invalid file magic,
   - `E3002` unsupported file format version,
@@ -79,6 +81,16 @@ Catalog snapshot startup/load errors:
 - `E4002` unsupported catalog snapshot version,
 - `E4003` snapshot payload exceeds supported size,
 - `E4004` snapshot page id overflow.
+
+Row codec errors:
+
+- `E3200` output pointer is null,
+- `E3201` column/value shape mismatch,
+- `E3202` type mismatch against schema column,
+- `E3203` text literal exceeds codec size limit,
+- `E3204` truncated row payload,
+- `E3205` schema/tag mismatch while decoding,
+- `E3206` trailing bytes in decoded row payload.
 
 ## Build
 

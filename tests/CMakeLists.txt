@@ -16,6 +16,7 @@ add_executable(atlasdb_unit_smoke
   unit/smoke_test.cpp
   unit/storage_file_header_test.cpp
   unit/storage_pager_test.cpp
+  unit/storage_row_codec_test.cpp
 )
 
 target_link_libraries(atlasdb_unit_smoke
