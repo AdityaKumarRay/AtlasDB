@@ -21,6 +21,7 @@ Current implemented persistence-focused coverage:
 - engine persistence regression test covering UPDATE/DELETE followed by SELECT across restart with page-native scan decoding.
 - engine persistence regression test covering multi-row INSERT order across restart with table-store-backed SELECT decoding.
 - engine persistence regression test covering CREATE of a new table without disturbing existing-table rows across restart.
+- engine persistence regression test covering UPDATE on one table while preserving another table's rows across restart.
 
 ## Execution
 

@@ -30,6 +30,7 @@ Current Phase 3 capabilities in place:
 - Persistence-mode SELECT path decodes rows from table-store scans, while mutating statements still use catalog-first execution.
 - Persistence-mode CREATE now initializes a table-store root for only the newly created table after catalog+snapshot success, with deterministic fallback rebuild on initialization failures.
 - Persistence-mode INSERT now appends directly to table-store pages after catalog+snapshot success, with deterministic fallback rebuild on append-path failures.
+- Persistence-mode UPDATE now rebuilds only the updated table's table-store pages after catalog+snapshot success, with deterministic fallback to full rebuild on table-scoped rebuild failures.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 

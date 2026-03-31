@@ -21,6 +21,7 @@
 - In persistence mode, SELECT now decodes rows from table-store scans (directory-managed row pages).
 - In persistence mode, CREATE now initializes table-store pages for the newly created table after catalog+snapshot success.
 - In persistence mode, INSERT now appends row payloads into table-store pages after catalog+snapshot success.
+- In persistence mode, UPDATE now rebuilds only the updated table-store from catalog rows after catalog+snapshot success.
 - Table and column identifiers are resolved case-insensitively.
 - Runtime checks currently enforced:
   - duplicate table names,
@@ -44,7 +45,8 @@ Persistence note:
 - catalog snapshot persistence is implemented for successful mutating statements,
 - table-store storage primitives now support append/read/scan across directory-managed row pages,
 - CREATE uses direct table-store initialization for the new table with deterministic rebuild fallback if initialization checks fail,
-- UPDATE/DELETE currently rebuild table-store pages from catalog snapshots after each successful write,
+- UPDATE uses table-scoped table-store rebuild with deterministic full-rebuild fallback if table-scoped rebuild checks fail,
+- DELETE currently rebuilds all table-store pages from catalog snapshots after each successful write,
 - INSERT uses direct table-store append with deterministic rebuild fallback if append-path consistency checks fail,
 - table/index page-oriented physical operators are still planned.
 

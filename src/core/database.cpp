@@ -347,6 +347,45 @@ Status DatabaseEngine::RebuildTableStoresFromCatalog() {
   return Status::Ok("rebuilt table-store pages from catalog snapshot");
 }
 
+Status DatabaseEngine::RebuildSingleTableStore(std::string_view table_name) {
+  if (!persistence_enabled_ || pager_ == nullptr) {
+    return Status::Ok();
+  }
+
+  const std::string table_name_copy(table_name);
+  const catalog::SelectResult select_result =
+      catalog_.SelectAll(parser::SelectStatement{table_name_copy});
+  if (!select_result.status.ok) {
+    return Status::Error(select_result.status.code + ": " + select_result.status.message);
+  }
+
+  storage::TableStore table_store(pager_.get());
+  std::uint32_t root_page_id = 0U;
+  const storage::TableStoreStatus init_status = table_store.Initialize(&root_page_id);
+  if (!init_status.ok) {
+    return Status::Error(init_status.code + ": " + init_status.message);
+  }
+
+  for (const std::vector<parser::ValueLiteral>& row : select_result.rows) {
+    std::vector<std::uint8_t> row_bytes;
+    const storage::RowCodecStatus encode_status =
+        storage::SerializeRow(select_result.columns, row, &row_bytes);
+    if (!encode_status.ok) {
+      return Status::Error(encode_status.code + ": " + encode_status.message);
+    }
+
+    storage::TableRowLocation location;
+    const storage::TableStoreStatus append_status =
+        table_store.AppendRow(root_page_id, row_bytes, &location);
+    if (!append_status.ok) {
+      return Status::Error(append_status.code + ": " + append_status.message);
+    }
+  }
+
+  table_store_roots_[NormalizeIdentifier(table_name_copy)] = root_page_id;
+  return Status::Ok("rebuilt table-store pages for table '" + table_name_copy + "'");
+}
+
 Status DatabaseEngine::InitializeCreateTableStore(const parser::CreateTableStatement& statement) {
   if (!persistence_enabled_ || pager_ == nullptr) {
     return Status::Ok();
@@ -555,10 +594,13 @@ Status DatabaseEngine::Execute(std::string_view statement) {
       return Status::Error(last_message_);
     }
 
-    const Status rebuild_status = RebuildTableStoresFromCatalog();
+    const Status rebuild_status = RebuildSingleTableStore(update_statement.table_name);
     if (!rebuild_status.ok) {
-      last_message_ = rebuild_status.message;
-      return Status::Error(last_message_);
+      const Status full_rebuild_status = RebuildTableStoresFromCatalog();
+      if (!full_rebuild_status.ok) {
+        last_message_ = rebuild_status.message;
+        return Status::Error(last_message_);
+      }
     }
 
     last_message_ = update_status.message;

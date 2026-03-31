@@ -31,6 +31,7 @@ class DatabaseEngine {
   [[nodiscard]] Status LoadCatalogSnapshotFromPager();
   [[nodiscard]] Status PersistCatalogSnapshotToPager();
   [[nodiscard]] Status RebuildTableStoresFromCatalog();
+  [[nodiscard]] Status RebuildSingleTableStore(std::string_view table_name);
   [[nodiscard]] Status InitializeCreateTableStore(const parser::CreateTableStatement& statement);
   [[nodiscard]] Status AppendInsertToTableStore(const parser::InsertStatement& statement);
 
