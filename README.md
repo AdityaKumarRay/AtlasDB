@@ -28,6 +28,7 @@ Current Phase 3 capabilities in place:
 - Slotted row-page foundation for deterministic row append/read within fixed-size pages.
 - Pager-backed table-store primitive for directory-managed row pages, row-location reads, and ordered scans.
 - Persistence-mode SELECT path decodes rows from table-store scans, while mutating statements still use catalog-first execution.
+- Persistence-mode CREATE now initializes a table-store root for only the newly created table after catalog+snapshot success, with deterministic fallback rebuild on initialization failures.
 - Persistence-mode INSERT now appends directly to table-store pages after catalog+snapshot success, with deterministic fallback rebuild on append-path failures.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).

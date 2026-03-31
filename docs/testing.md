@@ -20,6 +20,7 @@ Current implemented persistence-focused coverage:
 - table-store tests for initialize/append/read/row-count, scan ordering across multi-page growth, and deterministic E3402/E3404/E3405 path checks.
 - engine persistence regression test covering UPDATE/DELETE followed by SELECT across restart with page-native scan decoding.
 - engine persistence regression test covering multi-row INSERT order across restart with table-store-backed SELECT decoding.
+- engine persistence regression test covering CREATE of a new table without disturbing existing-table rows across restart.
 
 ## Execution
 

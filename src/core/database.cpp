@@ -347,6 +347,27 @@ Status DatabaseEngine::RebuildTableStoresFromCatalog() {
   return Status::Ok("rebuilt table-store pages from catalog snapshot");
 }
 
+Status DatabaseEngine::InitializeCreateTableStore(const parser::CreateTableStatement& statement) {
+  if (!persistence_enabled_ || pager_ == nullptr) {
+    return Status::Ok();
+  }
+
+  const std::string normalized_table = NormalizeIdentifier(statement.table_name);
+  if (table_store_roots_.find(normalized_table) != table_store_roots_.end()) {
+    return Status::Error("E4006: table-store root already exists for table '" + statement.table_name + "'");
+  }
+
+  storage::TableStore table_store(pager_.get());
+  std::uint32_t root_page_id = 0U;
+  const storage::TableStoreStatus init_status = table_store.Initialize(&root_page_id);
+  if (!init_status.ok) {
+    return Status::Error(init_status.code + ": " + init_status.message);
+  }
+
+  table_store_roots_.emplace(normalized_table, root_page_id);
+  return Status::Ok("initialized table-store pages for new table");
+}
+
 Status DatabaseEngine::AppendInsertToTableStore(const parser::InsertStatement& statement) {
   if (!persistence_enabled_ || pager_ == nullptr) {
     return Status::Ok();
@@ -429,10 +450,13 @@ Status DatabaseEngine::Execute(std::string_view statement) {
       return Status::Error(last_message_);
     }
 
-    const Status rebuild_status = RebuildTableStoresFromCatalog();
-    if (!rebuild_status.ok) {
-      last_message_ = rebuild_status.message;
-      return Status::Error(last_message_);
+    const Status initialize_status = InitializeCreateTableStore(create_statement);
+    if (!initialize_status.ok) {
+      const Status rebuild_status = RebuildTableStoresFromCatalog();
+      if (!rebuild_status.ok) {
+        last_message_ = initialize_status.message;
+        return Status::Error(last_message_);
+      }
     }
 
     last_message_ = create_status.message;

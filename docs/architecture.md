@@ -40,6 +40,7 @@ Current implemented execution path:
 - storage primitives now include typed row codec plus slotted row-page append/read/count layout utilities.
 - storage also includes a pager-backed table-store directory for managing row-data pages and row locations.
 - persistence-mode SELECT reads are decoded from table-store scans while write execution remains catalog-first.
+- persistence-mode CREATE now initializes table-store pages for the newly created table with rebuild fallback for consistency.
 - persistence-mode INSERT now appends into table-store pages after catalog+snapshot success, with rebuild fallback for consistency.
 
 ## Invariants
