@@ -146,6 +146,7 @@ AtlasDB now includes a pager-backed table-store primitive for row-page managemen
 - Persistence-mode CREATE initializes a fresh table-store root+first data page for each newly created table.
 - Persistence-mode INSERT currently routes row payload writes through table-store append semantics.
 - Persistence-mode UPDATE currently refreshes only the affected table-store by rebuilding that table's directory/data pages from catalog rows.
+- Persistence-mode DELETE currently refreshes only the affected table-store by rebuilding that table's directory/data pages from catalog rows.
 - Persistence-mode SELECT currently consumes decoded table-store scan rows.
 
 Deterministic table-store error codes currently used:

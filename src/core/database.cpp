@@ -620,10 +620,13 @@ Status DatabaseEngine::Execute(std::string_view statement) {
     return Status::Error(last_message_);
   }
 
-  const Status rebuild_status = RebuildTableStoresFromCatalog();
+  const Status rebuild_status = RebuildSingleTableStore(delete_statement.table_name);
   if (!rebuild_status.ok) {
-    last_message_ = rebuild_status.message;
-    return Status::Error(last_message_);
+    const Status full_rebuild_status = RebuildTableStoresFromCatalog();
+    if (!full_rebuild_status.ok) {
+      last_message_ = rebuild_status.message;
+      return Status::Error(last_message_);
+    }
   }
 
   last_message_ = delete_status.message;

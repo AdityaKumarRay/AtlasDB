@@ -282,6 +282,40 @@ TEST(DatabaseEngineSmoke, PersistenceModeUpdatePreservesOtherTableRowsAcrossReop
   RemoveIfExists(path);
 }
 
+TEST(DatabaseEngineSmoke, PersistenceModeDeletePreservesOtherTableRowsAcrossReopen) {
+  const std::filesystem::path path = UniqueDbPath();
+
+  {
+    atlasdb::DatabaseEngine writer(path.string());
+    ASSERT_TRUE(writer.Execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);").ok);
+    ASSERT_TRUE(writer.Execute("CREATE TABLE teams (id INTEGER PRIMARY KEY, name TEXT);").ok);
+    ASSERT_TRUE(writer.Execute("INSERT INTO users VALUES (1, 'alice');").ok);
+    ASSERT_TRUE(writer.Execute("INSERT INTO teams VALUES (10, 'infra');").ok);
+    ASSERT_TRUE(writer.Execute("DELETE FROM users WHERE id = 1;").ok);
+
+    const atlasdb::Status users_select = writer.Execute("SELECT * FROM users;");
+    ASSERT_TRUE(users_select.ok);
+    EXPECT_EQ(users_select.message, "selected 0 row(s) from 'users'");
+
+    const atlasdb::Status teams_select = writer.Execute("SELECT * FROM teams;");
+    ASSERT_TRUE(teams_select.ok);
+    EXPECT_EQ(teams_select.message, "selected 1 row(s) from 'teams': [10, 'infra']");
+  }
+
+  {
+    atlasdb::DatabaseEngine reader(path.string());
+    const atlasdb::Status users_select = reader.Execute("SELECT * FROM users;");
+    ASSERT_TRUE(users_select.ok);
+    EXPECT_EQ(users_select.message, "selected 0 row(s) from 'users'");
+
+    const atlasdb::Status teams_select = reader.Execute("SELECT * FROM teams;");
+    ASSERT_TRUE(teams_select.ok);
+    EXPECT_EQ(teams_select.message, "selected 1 row(s) from 'teams': [10, 'infra']");
+  }
+
+  RemoveIfExists(path);
+}
+
 TEST(DatabaseEngineSmoke, RejectsCorruptCatalogSnapshotOnStartup) {
   const std::filesystem::path path = UniqueDbPath();
 
