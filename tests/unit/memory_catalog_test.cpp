@@ -21,8 +21,8 @@ atlasdb::parser::CreateTableStatement UsersTableStatement() {
 atlasdb::parser::InsertStatement UserInsertStatement(std::int64_t id, std::string name) {
   atlasdb::parser::InsertStatement statement;
   statement.table_name = "users";
-  statement.values.push_back(atlasdb::parser::ValueLiteral{id});
-  statement.values.push_back(atlasdb::parser::ValueLiteral{std::move(name)});
+  statement.values.emplace_back(id);
+  statement.values.emplace_back(std::move(name));
   return statement;
 }
 
@@ -60,7 +60,7 @@ TEST(MemoryCatalog, RejectsValueCountMismatch) {
 
   atlasdb::parser::InsertStatement statement;
   statement.table_name = "users";
-  statement.values.push_back(atlasdb::parser::ValueLiteral{1LL});
+  statement.values.emplace_back(1LL);
 
   const atlasdb::catalog::CatalogStatus result = catalog.InsertRow(statement);
   ASSERT_FALSE(result.ok);
@@ -74,8 +74,8 @@ TEST(MemoryCatalog, RejectsTypeMismatch) {
 
   atlasdb::parser::InsertStatement statement;
   statement.table_name = "users";
-  statement.values.push_back(atlasdb::parser::ValueLiteral{std::string{"not-int"}});
-  statement.values.push_back(atlasdb::parser::ValueLiteral{std::string{"alice"}});
+  statement.values.emplace_back(std::string{"not-int"});
+  statement.values.emplace_back(std::string{"alice"});
 
   const atlasdb::catalog::CatalogStatus result = catalog.InsertRow(statement);
   ASSERT_FALSE(result.ok);

@@ -374,9 +374,9 @@ class StatementParser {
           return MakeParseError("E1305", "invalid integer literal", number_token.position);
         }
 
-        values.push_back(ValueLiteral{value});
+        values.emplace_back(value);
       } else if (Check(TokenKind::StringLiteral)) {
-        values.push_back(ValueLiteral{Advance().lexeme});
+        values.emplace_back(Advance().lexeme);
       } else {
         return MakeParseError("E1306", "expected literal value", Current().position);
       }
@@ -460,9 +460,9 @@ class StatementParser {
         return MakeParseError("E1505", "invalid integer literal", number_token.position);
       }
 
-      assignment_value = ValueLiteral{value};
+      assignment_value.value = value;
     } else if (Check(TokenKind::StringLiteral)) {
-      assignment_value = ValueLiteral{Advance().lexeme};
+      assignment_value.value = Advance().lexeme;
     } else {
       return MakeParseError("E1505", "expected literal value after '='", Current().position);
     }
@@ -492,9 +492,9 @@ class StatementParser {
         return MakeParseError("E1509", "invalid integer literal", number_token.position);
       }
 
-      predicate_value = ValueLiteral{value};
+      predicate_value.value = value;
     } else if (Check(TokenKind::StringLiteral)) {
-      predicate_value = ValueLiteral{Advance().lexeme};
+      predicate_value.value = Advance().lexeme;
     } else {
       return MakeParseError("E1509", "expected literal predicate value", Current().position);
     }
@@ -548,9 +548,9 @@ class StatementParser {
         return MakeParseError("E1606", "invalid integer literal", number_token.position);
       }
 
-      predicate_value = ValueLiteral{value};
+      predicate_value.value = value;
     } else if (Check(TokenKind::StringLiteral)) {
-      predicate_value = ValueLiteral{Advance().lexeme};
+      predicate_value.value = Advance().lexeme;
     } else {
       return MakeParseError("E1606", "expected literal predicate value", Current().position);
     }

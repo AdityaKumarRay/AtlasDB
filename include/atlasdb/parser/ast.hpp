@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -24,7 +25,11 @@ struct CreateTableStatement {
 };
 
 struct ValueLiteral {
-  std::variant<std::int64_t, std::string> value;
+  std::variant<std::int64_t, std::string> value{std::int64_t{0}};
+
+  ValueLiteral() = default;
+  explicit ValueLiteral(std::int64_t integer_value) : value(integer_value) {}
+  explicit ValueLiteral(std::string text_value) : value(std::move(text_value)) {}
 };
 
 struct InsertStatement {
