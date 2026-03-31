@@ -22,6 +22,14 @@ struct InternalEntry {
   std::uint32_t child_page_id{0};
 };
 
+struct InternalSplitMetadata {
+  std::int64_t promoted_key{0};
+  std::uint16_t left_entry_count{0};
+  std::uint16_t right_entry_count{0};
+  std::uint32_t right_page_id{0};
+  std::uint32_t right_left_child_page_id{0};
+};
+
 inline constexpr std::uint16_t kInternalNodeFormatVersion = 1U;
 inline constexpr std::size_t kInternalNodeHeaderSize = 24U;
 inline constexpr std::size_t kInternalNodeEntrySize = 16U;
@@ -52,5 +60,8 @@ inline constexpr std::size_t kInternalNodeMaxEntries =
                                                                  std::uint32_t left_child_page_id,
                                                                  std::int64_t separator_key,
                                                                  std::uint32_t right_child_page_id);
+[[nodiscard]] InternalNodeStatus SplitInternalNode(storage::Page* left_page,
+                                                   storage::Page* right_page,
+                                                   InternalSplitMetadata* out_metadata);
 
 }  // namespace atlasdb::btree

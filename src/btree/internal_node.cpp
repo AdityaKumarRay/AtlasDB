@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace atlasdb::btree {
 namespace {
@@ -394,6 +395,100 @@ InternalNodeStatus InitializeInternalRootFromSplit(storage::Page* page,
   }
 
   return InternalNodeStatus::Ok("initialized internal root from split metadata");
+}
+
+InternalNodeStatus SplitInternalNode(storage::Page* left_page,
+                                     storage::Page* right_page,
+                                     InternalSplitMetadata* out_metadata) {
+  if (left_page == nullptr || right_page == nullptr || out_metadata == nullptr) {
+    return InternalNodeStatus::Error("E5200", "internal split pointer argument is null");
+  }
+
+  if (right_page->id == 0U) {
+    return InternalNodeStatus::Error("E5207", "right internal page id must be non-zero");
+  }
+
+  if (right_page->id == left_page->id) {
+    return InternalNodeStatus::Error("E5207", "right internal page id must differ from left internal page id");
+  }
+
+  std::uint16_t original_entry_count = 0U;
+  std::uint32_t original_left_child_page_id = 0U;
+  const InternalNodeStatus left_layout_status =
+      ValidateInternalLayout(*left_page, &original_entry_count, &original_left_child_page_id);
+  if (!left_layout_status.ok) {
+    return left_layout_status;
+  }
+
+  if (original_entry_count < 2U) {
+    return InternalNodeStatus::Error("E5207", "internal node must have at least two entries to split");
+  }
+
+  std::vector<InternalEntry> original_entries;
+  original_entries.reserve(static_cast<std::size_t>(original_entry_count));
+  for (std::uint16_t index = 0U; index < original_entry_count; ++index) {
+    original_entries.push_back(ReadInternalEntryAt(*left_page, static_cast<std::size_t>(index)));
+  }
+
+  const std::uint16_t promoted_index = static_cast<std::uint16_t>(original_entry_count / 2U);
+  const InternalEntry promoted_entry = original_entries[static_cast<std::size_t>(promoted_index)];
+
+  std::vector<InternalEntry> left_entries;
+  left_entries.reserve(static_cast<std::size_t>(promoted_index));
+  for (std::size_t index = 0U; index < static_cast<std::size_t>(promoted_index); ++index) {
+    left_entries.push_back(original_entries[index]);
+  }
+
+  std::vector<InternalEntry> right_entries;
+  const std::size_t right_start_index = static_cast<std::size_t>(promoted_index) + 1U;
+  right_entries.reserve(static_cast<std::size_t>(original_entry_count) - right_start_index);
+  for (std::size_t index = right_start_index; index < original_entries.size(); ++index) {
+    right_entries.push_back(original_entries[index]);
+  }
+
+  const std::uint32_t left_page_id = left_page->id;
+  const std::uint32_t right_page_id = right_page->id;
+
+  const InternalNodeStatus init_right_status =
+      InitializeInternalNode(right_page, promoted_entry.child_page_id);
+  if (!init_right_status.ok) {
+    return init_right_status;
+  }
+
+  for (const InternalEntry& entry : right_entries) {
+    std::uint16_t appended_index = 0U;
+    const InternalNodeStatus append_status =
+        AppendInternalEntry(right_page, entry, &appended_index);
+    if (!append_status.ok) {
+      return append_status;
+    }
+  }
+
+  storage::Page rebuilt_left = storage::CreateZeroedPage(left_page_id);
+  const InternalNodeStatus init_left_status =
+      InitializeInternalNode(&rebuilt_left, original_left_child_page_id);
+  if (!init_left_status.ok) {
+    return init_left_status;
+  }
+
+  for (const InternalEntry& entry : left_entries) {
+    std::uint16_t appended_index = 0U;
+    const InternalNodeStatus append_status =
+        AppendInternalEntry(&rebuilt_left, entry, &appended_index);
+    if (!append_status.ok) {
+      return append_status;
+    }
+  }
+
+  *left_page = rebuilt_left;
+
+  out_metadata->promoted_key = promoted_entry.key;
+  out_metadata->left_entry_count = static_cast<std::uint16_t>(left_entries.size());
+  out_metadata->right_entry_count = static_cast<std::uint16_t>(right_entries.size());
+  out_metadata->right_page_id = right_page_id;
+  out_metadata->right_left_child_page_id = promoted_entry.child_page_id;
+
+  return InternalNodeStatus::Ok("split internal node and produced promoted separator key");
 }
 
 }  // namespace atlasdb::btree
