@@ -53,13 +53,41 @@ TEST(ParserSelect, ParsesSelectAllStatement) {
   EXPECT_EQ(select.table_name, "users");
 }
 
+TEST(ParserUpdate, ParsesUpdateStatement) {
+  const atlasdb::parser::ParseResult result =
+      atlasdb::parser::ParseSql("UPDATE users SET name = 'bob' WHERE id = 1;");
+
+  ASSERT_TRUE(result.ok);
+  ASSERT_TRUE(std::holds_alternative<atlasdb::parser::UpdateStatement>(result.statement));
+
+  const auto& update = std::get<atlasdb::parser::UpdateStatement>(result.statement);
+  EXPECT_EQ(update.table_name, "users");
+  EXPECT_EQ(update.assignment.column_name, "name");
+  EXPECT_EQ(std::get<std::string>(update.assignment.value.value), "bob");
+  EXPECT_EQ(update.predicate.column_name, "id");
+  EXPECT_EQ(std::get<std::int64_t>(update.predicate.value.value), 1);
+}
+
+TEST(ParserDelete, ParsesDeleteStatement) {
+  const atlasdb::parser::ParseResult result =
+      atlasdb::parser::ParseSql("DELETE FROM users WHERE id = 1;");
+
+  ASSERT_TRUE(result.ok);
+  ASSERT_TRUE(std::holds_alternative<atlasdb::parser::DeleteStatement>(result.statement));
+
+  const auto& deletion = std::get<atlasdb::parser::DeleteStatement>(result.statement);
+  EXPECT_EQ(deletion.table_name, "users");
+  EXPECT_EQ(deletion.predicate.column_name, "id");
+  EXPECT_EQ(std::get<std::int64_t>(deletion.predicate.value.value), 1);
+}
+
 TEST(ParserErrors, RejectsUnsupportedStatement) {
-  const atlasdb::parser::ParseResult result = atlasdb::parser::ParseSql("UPDATE users;");
+  const atlasdb::parser::ParseResult result = atlasdb::parser::ParseSql("DROP TABLE users;");
 
   ASSERT_FALSE(result.ok);
   EXPECT_EQ(result.error.code, "E1200");
   EXPECT_EQ(result.error.message,
-            "unsupported statement; expected CREATE TABLE, INSERT INTO, or SELECT * FROM");
+            "unsupported statement; expected CREATE TABLE, INSERT INTO, SELECT * FROM, UPDATE, or DELETE FROM");
 }
 
 TEST(ParserErrors, RejectsInvalidColumnType) {
@@ -84,6 +112,22 @@ TEST(ParserErrors, RejectsMalformedSelectWithoutStar) {
   ASSERT_FALSE(result.ok);
   EXPECT_EQ(result.error.code, "E1401");
   EXPECT_EQ(result.error.message, "expected '*' after SELECT");
+}
+
+TEST(ParserErrors, RejectsMalformedUpdateWithoutWhere) {
+  const atlasdb::parser::ParseResult result = atlasdb::parser::ParseSql("UPDATE users SET name = 'bob';");
+
+  ASSERT_FALSE(result.ok);
+  EXPECT_EQ(result.error.code, "E1506");
+  EXPECT_EQ(result.error.message, "expected WHERE keyword after assignment");
+}
+
+TEST(ParserErrors, RejectsMalformedDeleteWithoutWhere) {
+  const atlasdb::parser::ParseResult result = atlasdb::parser::ParseSql("DELETE FROM users;");
+
+  ASSERT_FALSE(result.ok);
+  EXPECT_EQ(result.error.code, "E1603");
+  EXPECT_EQ(result.error.message, "expected WHERE keyword after table name");
 }
 
 }  // namespace

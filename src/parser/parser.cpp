@@ -19,6 +19,7 @@ enum class TokenKind {
   RightParen,
   Comma,
   Star,
+  Equals,
   Semicolon,
   End,
 };
@@ -108,6 +109,10 @@ class Lexer {
           break;
         case '*':
           out_tokens->push_back(MakeToken(TokenKind::Star, "*", cursor_));
+          ++cursor_;
+          break;
+        case '=':
+          out_tokens->push_back(MakeToken(TokenKind::Equals, "=", cursor_));
           ++cursor_;
           break;
         case ';':
@@ -210,9 +215,17 @@ class StatementParser {
       return ParseSelect();
     }
 
+    if (MatchKeyword("UPDATE")) {
+      return ParseUpdate();
+    }
+
+    if (MatchKeyword("DELETE")) {
+      return ParseDelete();
+    }
+
     return MakeParseError(
         "E1200",
-        "unsupported statement; expected CREATE TABLE, INSERT INTO, or SELECT * FROM",
+        "unsupported statement; expected CREATE TABLE, INSERT INTO, SELECT * FROM, UPDATE, or DELETE FROM",
         Current().position);
   }
 
@@ -416,6 +429,144 @@ class StatementParser {
     return result;
   }
 
+  ParseResult ParseUpdate() {
+    if (!Check(TokenKind::Identifier)) {
+      return MakeParseError("E1501", "expected table name identifier after UPDATE", Current().position);
+    }
+    const std::string table_name = Advance().lexeme;
+
+    if (!MatchKeyword("SET")) {
+      return MakeParseError("E1502", "expected SET keyword after table name", Current().position);
+    }
+
+    if (!Check(TokenKind::Identifier)) {
+      return MakeParseError("E1503", "expected target column identifier", Current().position);
+    }
+    const std::string target_column = Advance().lexeme;
+
+    if (!Match(TokenKind::Equals)) {
+      return MakeParseError("E1504", "expected '=' after target column", Current().position);
+    }
+
+    ValueLiteral assignment_value;
+    if (Check(TokenKind::Number)) {
+      const Token number_token = Advance();
+
+      std::int64_t value = 0;
+      const char* begin = number_token.lexeme.data();
+      const char* end = begin + number_token.lexeme.size();
+      const std::from_chars_result conversion = std::from_chars(begin, end, value);
+      if (conversion.ec != std::errc{} || conversion.ptr != end) {
+        return MakeParseError("E1505", "invalid integer literal", number_token.position);
+      }
+
+      assignment_value = ValueLiteral{value};
+    } else if (Check(TokenKind::StringLiteral)) {
+      assignment_value = ValueLiteral{Advance().lexeme};
+    } else {
+      return MakeParseError("E1505", "expected literal value after '='", Current().position);
+    }
+
+    if (!MatchKeyword("WHERE")) {
+      return MakeParseError("E1506", "expected WHERE keyword after assignment", Current().position);
+    }
+
+    if (!Check(TokenKind::Identifier)) {
+      return MakeParseError("E1507", "expected predicate column identifier", Current().position);
+    }
+    const std::string predicate_column = Advance().lexeme;
+
+    if (!Match(TokenKind::Equals)) {
+      return MakeParseError("E1508", "expected '=' after predicate column", Current().position);
+    }
+
+    ValueLiteral predicate_value;
+    if (Check(TokenKind::Number)) {
+      const Token number_token = Advance();
+
+      std::int64_t value = 0;
+      const char* begin = number_token.lexeme.data();
+      const char* end = begin + number_token.lexeme.size();
+      const std::from_chars_result conversion = std::from_chars(begin, end, value);
+      if (conversion.ec != std::errc{} || conversion.ptr != end) {
+        return MakeParseError("E1509", "invalid integer literal", number_token.position);
+      }
+
+      predicate_value = ValueLiteral{value};
+    } else if (Check(TokenKind::StringLiteral)) {
+      predicate_value = ValueLiteral{Advance().lexeme};
+    } else {
+      return MakeParseError("E1509", "expected literal predicate value", Current().position);
+    }
+
+    Match(TokenKind::Semicolon);
+
+    if (!IsAtEnd()) {
+      return MakeParseError("E1510", "unexpected token after UPDATE statement", Current().position);
+    }
+
+    ParseResult result;
+    result.ok = true;
+    result.statement = UpdateStatement{table_name,
+                                       Assignment{target_column, std::move(assignment_value)},
+                                       EqualityPredicate{predicate_column, std::move(predicate_value)}};
+    return result;
+  }
+
+  ParseResult ParseDelete() {
+    if (!MatchKeyword("FROM")) {
+      return MakeParseError("E1601", "expected FROM keyword after DELETE", Current().position);
+    }
+
+    if (!Check(TokenKind::Identifier)) {
+      return MakeParseError("E1602", "expected table name identifier", Current().position);
+    }
+    const std::string table_name = Advance().lexeme;
+
+    if (!MatchKeyword("WHERE")) {
+      return MakeParseError("E1603", "expected WHERE keyword after table name", Current().position);
+    }
+
+    if (!Check(TokenKind::Identifier)) {
+      return MakeParseError("E1604", "expected predicate column identifier", Current().position);
+    }
+    const std::string predicate_column = Advance().lexeme;
+
+    if (!Match(TokenKind::Equals)) {
+      return MakeParseError("E1605", "expected '=' after predicate column", Current().position);
+    }
+
+    ValueLiteral predicate_value;
+    if (Check(TokenKind::Number)) {
+      const Token number_token = Advance();
+
+      std::int64_t value = 0;
+      const char* begin = number_token.lexeme.data();
+      const char* end = begin + number_token.lexeme.size();
+      const std::from_chars_result conversion = std::from_chars(begin, end, value);
+      if (conversion.ec != std::errc{} || conversion.ptr != end) {
+        return MakeParseError("E1606", "invalid integer literal", number_token.position);
+      }
+
+      predicate_value = ValueLiteral{value};
+    } else if (Check(TokenKind::StringLiteral)) {
+      predicate_value = ValueLiteral{Advance().lexeme};
+    } else {
+      return MakeParseError("E1606", "expected literal predicate value", Current().position);
+    }
+
+    Match(TokenKind::Semicolon);
+
+    if (!IsAtEnd()) {
+      return MakeParseError("E1607", "unexpected token after DELETE statement", Current().position);
+    }
+
+    ParseResult result;
+    result.ok = true;
+    result.statement = DeleteStatement{table_name, EqualityPredicate{predicate_column, std::move(predicate_value)}};
+    return result;
+  }
+
   std::vector<Token> tokens_;
   std::size_t cursor_{0};
 };
@@ -443,7 +594,15 @@ std::string StatementTypeName(const Statement& statement) {
     return "INSERT";
   }
 
-  return "SELECT";
+  if (std::holds_alternative<SelectStatement>(statement)) {
+    return "SELECT";
+  }
+
+  if (std::holds_alternative<UpdateStatement>(statement)) {
+    return "UPDATE";
+  }
+
+  return "DELETE";
 }
 
 }  // namespace atlasdb::parser

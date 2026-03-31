@@ -33,6 +33,8 @@ class MemoryCatalog {
   [[nodiscard]] CatalogStatus CreateTable(const parser::CreateTableStatement& statement);
   [[nodiscard]] CatalogStatus InsertRow(const parser::InsertStatement& statement);
   [[nodiscard]] SelectResult SelectAll(const parser::SelectStatement& statement) const;
+  [[nodiscard]] CatalogStatus UpdateWhereEquals(const parser::UpdateStatement& statement);
+  [[nodiscard]] CatalogStatus DeleteWhereEquals(const parser::DeleteStatement& statement);
 
   [[nodiscard]] bool HasTable(std::string_view table_name) const;
   [[nodiscard]] std::size_t RowCount(std::string_view table_name) const;
@@ -47,6 +49,8 @@ class MemoryCatalog {
   };
 
   [[nodiscard]] static std::string NormalizeIdentifier(std::string_view identifier);
+  [[nodiscard]] static std::size_t FindColumnIndex(const Table& table, std::string_view column_name);
+  [[nodiscard]] static bool LiteralEquals(const parser::ValueLiteral& lhs, const parser::ValueLiteral& rhs);
   [[nodiscard]] static bool ValueMatchesType(const parser::ValueLiteral& value, parser::ColumnType type);
   [[nodiscard]] static std::string TypeName(parser::ColumnType type);
   [[nodiscard]] static std::string PrimaryKeyToken(const parser::ValueLiteral& value);

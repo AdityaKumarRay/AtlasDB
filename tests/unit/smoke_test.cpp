@@ -59,6 +59,44 @@ TEST(DatabaseEngineSmoke, RejectsSelectForUnknownTable) {
   EXPECT_EQ(select.message, "E2003: table not found: users");
 }
 
+TEST(DatabaseEngineSmoke, UpdatesRowByPrimaryKey) {
+  atlasdb::DatabaseEngine engine;
+  ASSERT_TRUE(engine.Execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);").ok);
+  ASSERT_TRUE(engine.Execute("INSERT INTO users VALUES (1, 'alice');").ok);
+
+  const atlasdb::Status update = engine.Execute("UPDATE users SET name = 'alicia' WHERE id = 1;");
+  EXPECT_TRUE(update.ok);
+  EXPECT_EQ(update.message, "updated 1 row in 'users'");
+
+  const atlasdb::Status select = engine.Execute("SELECT * FROM users;");
+  EXPECT_TRUE(select.ok);
+  EXPECT_EQ(select.message, "selected 1 row(s) from 'users': [1, 'alicia']");
+}
+
+TEST(DatabaseEngineSmoke, DeletesRowByPrimaryKey) {
+  atlasdb::DatabaseEngine engine;
+  ASSERT_TRUE(engine.Execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);").ok);
+  ASSERT_TRUE(engine.Execute("INSERT INTO users VALUES (1, 'alice');").ok);
+
+  const atlasdb::Status deletion = engine.Execute("DELETE FROM users WHERE id = 1;");
+  EXPECT_TRUE(deletion.ok);
+  EXPECT_EQ(deletion.message, "deleted 1 row from 'users'");
+
+  const atlasdb::Status select = engine.Execute("SELECT * FROM users;");
+  EXPECT_TRUE(select.ok);
+  EXPECT_EQ(select.message, "selected 0 row(s) from 'users'");
+}
+
+TEST(DatabaseEngineSmoke, RejectsUpdateWhereNonPrimaryKey) {
+  atlasdb::DatabaseEngine engine;
+  ASSERT_TRUE(engine.Execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);").ok);
+  ASSERT_TRUE(engine.Execute("INSERT INTO users VALUES (1, 'alice');").ok);
+
+  const atlasdb::Status update = engine.Execute("UPDATE users SET name = 'alicia' WHERE name = 'alice';");
+  EXPECT_FALSE(update.ok);
+  EXPECT_EQ(update.message, "E2008: WHERE column must be PRIMARY KEY: name");
+}
+
 TEST(DatabaseEngineSmoke, RejectsEmptyStatement) {
   atlasdb::DatabaseEngine engine;
   const atlasdb::Status status = engine.Execute("   ");
@@ -77,11 +115,11 @@ TEST(DatabaseEngineSmoke, ReportsUnknownMetaCommand) {
 
 TEST(DatabaseEngineSmoke, RejectsUnsupportedStatement) {
   atlasdb::DatabaseEngine engine;
-  const atlasdb::Status status = engine.Execute("DELETE FROM users;");
+  const atlasdb::Status status = engine.Execute("MERGE users;");
 
   EXPECT_FALSE(status.ok);
   EXPECT_EQ(status.message,
-            "E1200: unsupported statement; expected CREATE TABLE, INSERT INTO, or SELECT * FROM");
+            "E1200: unsupported statement; expected CREATE TABLE, INSERT INTO, SELECT * FROM, UPDATE, or DELETE FROM");
 }
 
 TEST(VersionSmoke, VersionStringIsPresent) {

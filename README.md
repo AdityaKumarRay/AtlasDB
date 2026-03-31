@@ -11,7 +11,7 @@ Phase 0 foundation is in place:
 - C++20 + CMake project layout.
 - Strict compiler warning policy.
 - GoogleTest test harness.
-- REPL plus deterministic parser and in-memory execution for CREATE TABLE, INSERT, and SELECT.
+- REPL plus deterministic parser and in-memory execution for CREATE TABLE, INSERT, SELECT, UPDATE, and DELETE.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
 ## Project Goals
@@ -80,10 +80,12 @@ atlasdb> CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
 ok: created table 'users'
 atlasdb> INSERT INTO users VALUES (1, 'alice');
 ok: inserted 1 row into 'users'
-atlasdb> INSERT INTO users VALUES (1, 'bob');
-error: E2006: duplicate primary key for table 'users'
+atlasdb> UPDATE users SET name = 'alicia' WHERE id = 1;
+ok: updated 1 row in 'users'
 atlasdb> SELECT * FROM users;
-ok: selected 1 row(s) from 'users': [1, 'alice']
+ok: selected 1 row(s) from 'users': [1, 'alicia']
+atlasdb> DELETE FROM users WHERE id = 1;
+ok: deleted 1 row from 'users'
 atlasdb> .exit
 ```
 

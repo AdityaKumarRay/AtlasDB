@@ -133,4 +133,70 @@ TEST(MemoryCatalog, RejectsSelectFromUnknownTable) {
   EXPECT_EQ(result.status.message, "table not found: users");
 }
 
+TEST(MemoryCatalog, UpdatesRowByPrimaryKey) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+  ASSERT_TRUE(catalog.InsertRow(UserInsertStatement(1, "alice")).ok);
+
+  atlasdb::parser::UpdateStatement statement{
+      "users",
+      atlasdb::parser::Assignment{"name", atlasdb::parser::ValueLiteral{std::string{"alicia"}}},
+      atlasdb::parser::EqualityPredicate{"id", atlasdb::parser::ValueLiteral{1LL}},
+  };
+
+  const atlasdb::catalog::CatalogStatus update = catalog.UpdateWhereEquals(statement);
+  ASSERT_TRUE(update.ok);
+  EXPECT_EQ(update.message, "updated 1 row in 'users'");
+
+  const atlasdb::catalog::SelectResult selected = catalog.SelectAll(atlasdb::parser::SelectStatement{"users"});
+  ASSERT_TRUE(selected.status.ok);
+  ASSERT_EQ(selected.rows.size(), 1U);
+  EXPECT_EQ(std::get<std::string>(selected.rows[0][1].value), "alicia");
+}
+
+TEST(MemoryCatalog, DeletesRowByPrimaryKey) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+  ASSERT_TRUE(catalog.InsertRow(UserInsertStatement(1, "alice")).ok);
+
+  const atlasdb::catalog::CatalogStatus deletion = catalog.DeleteWhereEquals(atlasdb::parser::DeleteStatement{
+      "users",
+      atlasdb::parser::EqualityPredicate{"id", atlasdb::parser::ValueLiteral{1LL}},
+  });
+
+  ASSERT_TRUE(deletion.ok);
+  EXPECT_EQ(deletion.message, "deleted 1 row from 'users'");
+  EXPECT_EQ(catalog.RowCount("users"), 0U);
+}
+
+TEST(MemoryCatalog, RejectsUpdateWhereNonPrimaryKeyColumn) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+  ASSERT_TRUE(catalog.InsertRow(UserInsertStatement(1, "alice")).ok);
+
+  const atlasdb::catalog::CatalogStatus update = catalog.UpdateWhereEquals(atlasdb::parser::UpdateStatement{
+      "users",
+      atlasdb::parser::Assignment{"name", atlasdb::parser::ValueLiteral{std::string{"alicia"}}},
+      atlasdb::parser::EqualityPredicate{"name", atlasdb::parser::ValueLiteral{std::string{"alice"}}},
+  });
+
+  ASSERT_FALSE(update.ok);
+  EXPECT_EQ(update.code, "E2008");
+  EXPECT_EQ(update.message, "WHERE column must be PRIMARY KEY: name");
+}
+
+TEST(MemoryCatalog, RejectsDeleteWhenRowMissing) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+
+  const atlasdb::catalog::CatalogStatus deletion = catalog.DeleteWhereEquals(atlasdb::parser::DeleteStatement{
+      "users",
+      atlasdb::parser::EqualityPredicate{"id", atlasdb::parser::ValueLiteral{42LL}},
+  });
+
+  ASSERT_FALSE(deletion.ok);
+  EXPECT_EQ(deletion.code, "E2009");
+  EXPECT_EQ(deletion.message, "row not found for key match in table 'users'");
+}
+
 }  // namespace

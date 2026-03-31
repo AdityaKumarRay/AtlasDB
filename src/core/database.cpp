@@ -138,17 +138,42 @@ Status DatabaseEngine::Execute(std::string_view statement) {
     return Status::Ok(last_message_);
   }
 
-  const auto& select_statement = std::get<parser::SelectStatement>(parse_result.statement);
-  const catalog::SelectResult select_result = catalog_.SelectAll(select_statement);
-  if (!select_result.status.ok) {
-    last_message_ = select_result.status.code + ": " + select_result.status.message;
+  if (std::holds_alternative<parser::SelectStatement>(parse_result.statement)) {
+    const auto& select_statement = std::get<parser::SelectStatement>(parse_result.statement);
+    const catalog::SelectResult select_result = catalog_.SelectAll(select_statement);
+    if (!select_result.status.ok) {
+      last_message_ = select_result.status.code + ": " + select_result.status.message;
+      return Status::Error(last_message_);
+    }
+
+    last_message_ = select_result.status.message;
+    if (!select_result.rows.empty()) {
+      last_message_ += ": " + FormatRows(select_result.rows);
+    }
+
+    return Status::Ok(last_message_);
+  }
+
+  if (std::holds_alternative<parser::UpdateStatement>(parse_result.statement)) {
+    const auto& update_statement = std::get<parser::UpdateStatement>(parse_result.statement);
+    const catalog::CatalogStatus update_status = catalog_.UpdateWhereEquals(update_statement);
+    if (!update_status.ok) {
+      last_message_ = update_status.code + ": " + update_status.message;
+      return Status::Error(last_message_);
+    }
+
+    last_message_ = update_status.message;
+    return Status::Ok(last_message_);
+  }
+
+  const auto& delete_statement = std::get<parser::DeleteStatement>(parse_result.statement);
+  const catalog::CatalogStatus delete_status = catalog_.DeleteWhereEquals(delete_statement);
+  if (!delete_status.ok) {
+    last_message_ = delete_status.code + ": " + delete_status.message;
     return Status::Error(last_message_);
   }
 
-  last_message_ = select_result.status.message;
-  if (!select_result.rows.empty()) {
-    last_message_ += ": " + FormatRows(select_result.rows);
-  }
+  last_message_ = delete_status.message;
 
   return Status::Ok(last_message_);
 }
