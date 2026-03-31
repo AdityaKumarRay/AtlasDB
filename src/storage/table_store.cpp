@@ -335,6 +335,63 @@ TableStoreStatus TableStore::ReadRow(std::uint32_t root_page_id,
   return TableStoreStatus::Ok("read row from table store");
 }
 
+TableStoreStatus TableStore::ScanRows(std::uint32_t root_page_id,
+                                      std::vector<StoredTableRow>* out_rows) {
+  if (out_rows == nullptr) {
+    return TableStoreStatus::Error("E3400", "output rows pointer is null");
+  }
+
+  if (pager_ == nullptr || !pager_->IsOpen()) {
+    return TableStoreStatus::Error("E3401", "table store pager is not open");
+  }
+
+  DirectoryState state;
+  Page directory_page;
+  const PagerStatus read_directory_status = pager_->ReadPage(root_page_id, &directory_page);
+  if (!read_directory_status.ok) {
+    return WrapPagerStatus(read_directory_status);
+  }
+
+  const TableStoreStatus parse_status = ParseDirectoryPage(directory_page, *pager_, &state);
+  if (!parse_status.ok) {
+    return parse_status;
+  }
+
+  std::vector<StoredTableRow> rows;
+  rows.reserve(static_cast<std::size_t>(state.row_count));
+
+  for (const std::uint32_t page_id : state.data_page_ids) {
+    Page data_page;
+    const PagerStatus read_data_status = pager_->ReadPage(page_id, &data_page);
+    if (!read_data_status.ok) {
+      return WrapPagerStatus(read_data_status);
+    }
+
+    std::uint16_t page_row_count = 0U;
+    const RowPageStatus page_count_status = GetRowCountFromPage(data_page, &page_row_count);
+    if (!page_count_status.ok) {
+      return TableStoreStatus::Error(page_count_status.code, page_count_status.message);
+    }
+
+    for (std::uint16_t slot_index = 0U; slot_index < page_row_count; ++slot_index) {
+      std::vector<std::uint8_t> row_bytes;
+      const RowPageStatus read_row_status = ReadRowFromPage(data_page, slot_index, &row_bytes);
+      if (!read_row_status.ok) {
+        return TableStoreStatus::Error(read_row_status.code, read_row_status.message);
+      }
+
+      rows.push_back(StoredTableRow{TableRowLocation{page_id, slot_index}, std::move(row_bytes)});
+    }
+  }
+
+  if (rows.size() != static_cast<std::size_t>(state.row_count)) {
+    return TableStoreStatus::Error("E3404", "table directory row count does not match scanned rows");
+  }
+
+  *out_rows = std::move(rows);
+  return TableStoreStatus::Ok("scanned rows from table store");
+}
+
 TableStoreStatus TableStore::RowCount(std::uint32_t root_page_id, std::uint32_t* out_row_count) {
   if (out_row_count == nullptr) {
     return TableStoreStatus::Error("E3400", "output row count pointer is null");

@@ -39,6 +39,7 @@ Persistence note:
 
 - low-level pager and page/header codecs are implemented,
 - catalog snapshot persistence is implemented for successful mutating statements,
+- table-store storage primitives now support append/read/scan across directory-managed row pages,
 - table/index page-oriented physical operators are still planned.
 
 ## Determinism Requirements

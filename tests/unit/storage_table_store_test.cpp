@@ -47,6 +47,15 @@ std::vector<std::uint8_t> EncodeUserRow(std::int64_t id, std::string name) {
   return row_bytes;
 }
 
+std::int64_t DecodeUserId(const std::vector<std::uint8_t>& row_bytes) {
+  std::vector<atlasdb::parser::ValueLiteral> decoded;
+  const atlasdb::storage::RowCodecStatus status =
+      atlasdb::storage::DeserializeRow(UserColumns(), row_bytes, &decoded);
+  EXPECT_TRUE(status.ok);
+  EXPECT_EQ(decoded.size(), 2U);
+  return std::get<std::int64_t>(decoded[0].value);
+}
+
 TEST(StorageTableStore, InitializesDirectoryAndFirstDataPage) {
   const std::filesystem::path path = UniqueDbPath();
 
@@ -193,6 +202,87 @@ TEST(StorageTableStore, PersistsRowsAcrossPagerReopen) {
     pager.Close();
   }
 
+  RemoveIfExists(path);
+}
+
+TEST(StorageTableStore, ScansRowsInAppendOrderAcrossPages) {
+  const std::filesystem::path path = UniqueDbPath();
+
+  atlasdb::storage::Pager pager;
+  ASSERT_TRUE(pager.Open(path.string()).ok);
+
+  atlasdb::storage::TableStore store(&pager);
+  std::uint32_t root_page_id = 0U;
+  ASSERT_TRUE(store.Initialize(&root_page_id).ok);
+
+  const std::string large_text(1700U, 'x');
+  for (std::int64_t id = 1; id <= 4; ++id) {
+    atlasdb::storage::TableRowLocation location;
+    ASSERT_TRUE(store.AppendRow(root_page_id, EncodeUserRow(id, large_text), &location).ok);
+  }
+
+  std::vector<atlasdb::storage::StoredTableRow> rows;
+  ASSERT_TRUE(store.ScanRows(root_page_id, &rows).ok);
+  ASSERT_EQ(rows.size(), 4U);
+
+  EXPECT_EQ(DecodeUserId(rows[0].row_bytes), 1);
+  EXPECT_EQ(DecodeUserId(rows[1].row_bytes), 2);
+  EXPECT_EQ(DecodeUserId(rows[2].row_bytes), 3);
+  EXPECT_EQ(DecodeUserId(rows[3].row_bytes), 4);
+
+  pager.Close();
+  RemoveIfExists(path);
+}
+
+TEST(StorageTableStore, ScanRowsRejectsNullOutputBuffer) {
+  const std::filesystem::path path = UniqueDbPath();
+
+  atlasdb::storage::Pager pager;
+  ASSERT_TRUE(pager.Open(path.string()).ok);
+
+  atlasdb::storage::TableStore store(&pager);
+  std::uint32_t root_page_id = 0U;
+  ASSERT_TRUE(store.Initialize(&root_page_id).ok);
+
+  const atlasdb::storage::TableStoreStatus status = store.ScanRows(root_page_id, nullptr);
+  ASSERT_FALSE(status.ok);
+  EXPECT_EQ(status.code, "E3400");
+  EXPECT_EQ(status.message, "output rows pointer is null");
+
+  pager.Close();
+  RemoveIfExists(path);
+}
+
+TEST(StorageTableStore, ScanRowsDetectsDirectoryRowCountMismatch) {
+  const std::filesystem::path path = UniqueDbPath();
+
+  atlasdb::storage::Pager pager;
+  ASSERT_TRUE(pager.Open(path.string()).ok);
+
+  atlasdb::storage::TableStore store(&pager);
+  std::uint32_t root_page_id = 0U;
+  ASSERT_TRUE(store.Initialize(&root_page_id).ok);
+
+  atlasdb::storage::TableRowLocation location;
+  ASSERT_TRUE(store.AppendRow(root_page_id, EncodeUserRow(1, "alice"), &location).ok);
+
+  atlasdb::storage::Page root_page;
+  ASSERT_TRUE(pager.ReadPage(root_page_id, &root_page).ok);
+
+  root_page.bytes[12U] = 7U;
+  root_page.bytes[13U] = 0U;
+  root_page.bytes[14U] = 0U;
+  root_page.bytes[15U] = 0U;
+  ASSERT_TRUE(pager.WritePage(root_page).ok);
+
+  std::vector<atlasdb::storage::StoredTableRow> rows;
+  const atlasdb::storage::TableStoreStatus status = store.ScanRows(root_page_id, &rows);
+
+  ASSERT_FALSE(status.ok);
+  EXPECT_EQ(status.code, "E3404");
+  EXPECT_EQ(status.message, "table directory row count does not match scanned rows");
+
+  pager.Close();
   RemoveIfExists(path);
 }
 

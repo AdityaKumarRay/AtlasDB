@@ -63,6 +63,7 @@ Current implemented foundation:
 - Typed row codec for deterministic row-value encode/decode against schema columns.
 - Slotted row-page layout primitives for row count, append, and slot-based read.
 - Table-store layout for root directory pages that track row-data pages across pager reopen.
+- Table-store scan primitive for ordered row traversal across directory-managed data pages.
 - Deterministic header validation error codes:
   - `E3001` invalid file magic,
   - `E3002` unsupported file format version,
@@ -112,6 +113,7 @@ Table store errors:
 - `E3401` table-store pager not open,
 - `E3402` invalid table-directory page layout/version,
 - `E3403` pager operation failure while loading/writing table-store pages,
+- `E3404` directory row-count integrity mismatch during scan,
 - `E3405` requested row page is not part of table directory,
 - `E3406` table-directory entry capacity reached.
 

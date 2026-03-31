@@ -142,6 +142,7 @@ AtlasDB now includes a pager-backed table-store primitive for row-page managemen
 - Directory entries are 32-bit row-data page ids.
 - Appends target the last data page and allocate a new row page when the tail page is full.
 - Row reads validate that the requested row page belongs to the table directory.
+- Row scans traverse data pages in directory order and validate scanned row count against directory metadata.
 
 Deterministic table-store error codes currently used:
 
@@ -149,6 +150,7 @@ Deterministic table-store error codes currently used:
 - `E3401` pager not open,
 - `E3402` invalid directory layout/version,
 - `E3403` pager read/write/allocate failure wrapper,
+- `E3404` row-count integrity mismatch during scan,
 - `E3405` row location page does not belong to table,
 - `E3406` directory entry capacity exhausted.
 

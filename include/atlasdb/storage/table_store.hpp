@@ -23,6 +23,11 @@ struct TableRowLocation {
   std::uint16_t slot_index{0};
 };
 
+struct StoredTableRow {
+  TableRowLocation location;
+  std::vector<std::uint8_t> row_bytes;
+};
+
 class TableStore {
  public:
   explicit TableStore(Pager* pager);
@@ -34,6 +39,8 @@ class TableStore {
   [[nodiscard]] TableStoreStatus ReadRow(std::uint32_t root_page_id,
                                          const TableRowLocation& location,
                                          std::vector<std::uint8_t>* out_row_bytes);
+  [[nodiscard]] TableStoreStatus ScanRows(std::uint32_t root_page_id,
+                                          std::vector<StoredTableRow>* out_rows);
   [[nodiscard]] TableStoreStatus RowCount(std::uint32_t root_page_id,
                                           std::uint32_t* out_row_count);
 

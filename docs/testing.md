@@ -17,7 +17,7 @@ Current implemented persistence-focused coverage:
 - catalog snapshot codec unit tests for round-trip, null output buffer, unsupported version, and trailing-byte rejection,
 - row codec unit tests for round-trip plus E3201/E3202/E3204/E3205/E3206 deterministic decode/encode failures.
 - slotted row-page tests for append/read/count behavior plus E3301/E3303/E3304/E3305 structural validation failures.
-- table-store tests for initialize/append/read/row-count and multi-page growth with deterministic E3402/E3405 path checks.
+- table-store tests for initialize/append/read/row-count, scan ordering across multi-page growth, and deterministic E3402/E3404/E3405 path checks.
 
 ## Execution
 
