@@ -18,6 +18,7 @@ enum class TokenKind {
   LeftParen,
   RightParen,
   Comma,
+  Star,
   Semicolon,
   End,
 };
@@ -103,6 +104,10 @@ class Lexer {
           break;
         case ',':
           out_tokens->push_back(MakeToken(TokenKind::Comma, ",", cursor_));
+          ++cursor_;
+          break;
+        case '*':
+          out_tokens->push_back(MakeToken(TokenKind::Star, "*", cursor_));
           ++cursor_;
           break;
         case ';':
@@ -201,8 +206,14 @@ class StatementParser {
       return ParseInsert();
     }
 
-    return MakeParseError("E1200", "unsupported statement; expected CREATE TABLE or INSERT INTO",
-                          Current().position);
+    if (MatchKeyword("SELECT")) {
+      return ParseSelect();
+    }
+
+    return MakeParseError(
+        "E1200",
+        "unsupported statement; expected CREATE TABLE, INSERT INTO, or SELECT * FROM",
+        Current().position);
   }
 
  private:
@@ -379,6 +390,32 @@ class StatementParser {
     return result;
   }
 
+  ParseResult ParseSelect() {
+    if (!Match(TokenKind::Star)) {
+      return MakeParseError("E1401", "expected '*' after SELECT", Current().position);
+    }
+
+    if (!MatchKeyword("FROM")) {
+      return MakeParseError("E1402", "expected FROM keyword after SELECT *", Current().position);
+    }
+
+    if (!Check(TokenKind::Identifier)) {
+      return MakeParseError("E1403", "expected table name identifier", Current().position);
+    }
+    const std::string table_name = Advance().lexeme;
+
+    Match(TokenKind::Semicolon);
+
+    if (!IsAtEnd()) {
+      return MakeParseError("E1404", "unexpected token after SELECT statement", Current().position);
+    }
+
+    ParseResult result;
+    result.ok = true;
+    result.statement = SelectStatement{table_name};
+    return result;
+  }
+
   std::vector<Token> tokens_;
   std::size_t cursor_{0};
 };
@@ -401,7 +438,12 @@ std::string StatementTypeName(const Statement& statement) {
   if (std::holds_alternative<CreateTableStatement>(statement)) {
     return "CREATE TABLE";
   }
-  return "INSERT";
+
+  if (std::holds_alternative<InsertStatement>(statement)) {
+    return "INSERT";
+  }
+
+  return "SELECT";
 }
 
 }  // namespace atlasdb::parser

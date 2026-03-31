@@ -15,16 +15,18 @@
 
 ## Current Runtime Scope
 
-- CREATE TABLE and INSERT are executed against an in-memory catalog.
+- CREATE TABLE, INSERT, and SELECT \* FROM are executed against an in-memory catalog.
 - Table and column identifiers are resolved case-insensitively.
 - Runtime checks currently enforced:
   - duplicate table names,
-  - unknown table on insert,
+  - unknown table on insert/select,
   - value count mismatch,
   - literal type mismatch,
   - duplicate PRIMARY KEY values.
 
 Runtime errors use deterministic `E2xxx` codes.
+
+SELECT output is deterministic and currently emitted as an ordered row list in insertion order.
 
 ## Determinism Requirements
 

@@ -40,6 +40,25 @@ TEST(DatabaseEngineSmoke, RejectsInsertForUnknownTable) {
   EXPECT_EQ(status.message, "E2003: table not found: users");
 }
 
+TEST(DatabaseEngineSmoke, SelectsRowsAfterInsert) {
+  atlasdb::DatabaseEngine engine;
+  ASSERT_TRUE(engine.Execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);").ok);
+  ASSERT_TRUE(engine.Execute("INSERT INTO users VALUES (1, 'alice');").ok);
+  ASSERT_TRUE(engine.Execute("INSERT INTO users VALUES (2, 'bob');").ok);
+
+  const atlasdb::Status select = engine.Execute("SELECT * FROM users;");
+  EXPECT_TRUE(select.ok);
+  EXPECT_EQ(select.message, "selected 2 row(s) from 'users': [1, 'alice']; [2, 'bob']");
+}
+
+TEST(DatabaseEngineSmoke, RejectsSelectForUnknownTable) {
+  atlasdb::DatabaseEngine engine;
+
+  const atlasdb::Status select = engine.Execute("SELECT * FROM users;");
+  EXPECT_FALSE(select.ok);
+  EXPECT_EQ(select.message, "E2003: table not found: users");
+}
+
 TEST(DatabaseEngineSmoke, RejectsEmptyStatement) {
   atlasdb::DatabaseEngine engine;
   const atlasdb::Status status = engine.Execute("   ");
@@ -58,10 +77,11 @@ TEST(DatabaseEngineSmoke, ReportsUnknownMetaCommand) {
 
 TEST(DatabaseEngineSmoke, RejectsUnsupportedStatement) {
   atlasdb::DatabaseEngine engine;
-  const atlasdb::Status status = engine.Execute("SELECT 1");
+  const atlasdb::Status status = engine.Execute("DELETE FROM users;");
 
   EXPECT_FALSE(status.ok);
-  EXPECT_EQ(status.message, "E1200: unsupported statement; expected CREATE TABLE or INSERT INTO");
+  EXPECT_EQ(status.message,
+            "E1200: unsupported statement; expected CREATE TABLE, INSERT INTO, or SELECT * FROM");
 }
 
 TEST(VersionSmoke, VersionStringIsPresent) {

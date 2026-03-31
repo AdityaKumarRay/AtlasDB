@@ -100,6 +100,25 @@ CatalogStatus MemoryCatalog::InsertRow(const parser::InsertStatement& statement)
   return CatalogStatus::Ok("inserted 1 row into '" + table.name + "'");
 }
 
+SelectResult MemoryCatalog::SelectAll(const parser::SelectStatement& statement) const {
+  SelectResult result;
+
+  const std::string normalized_table_name = NormalizeIdentifier(statement.table_name);
+  const auto table_iter = tables_.find(normalized_table_name);
+  if (table_iter == tables_.end()) {
+    result.status = CatalogStatus::Error("E2003", "table not found: " + statement.table_name);
+    return result;
+  }
+
+  const Table& table = table_iter->second;
+  result.status = CatalogStatus::Ok(
+      "selected " + std::to_string(static_cast<unsigned long long>(table.rows.size())) +
+      " row(s) from '" + table.name + "'");
+  result.columns = table.columns;
+  result.rows = table.rows;
+  return result;
+}
+
 bool MemoryCatalog::HasTable(std::string_view table_name) const {
   return tables_.contains(NormalizeIdentifier(table_name));
 }

@@ -32,6 +32,10 @@ struct InsertStatement {
   std::vector<ValueLiteral> values;
 };
 
-using Statement = std::variant<CreateTableStatement, InsertStatement>;
+struct SelectStatement {
+  std::string table_name;
+};
+
+using Statement = std::variant<CreateTableStatement, InsertStatement, SelectStatement>;
 
 }  // namespace atlasdb::parser

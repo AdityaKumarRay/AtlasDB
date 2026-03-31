@@ -20,12 +20,19 @@ struct CatalogStatus {
   static CatalogStatus Error(std::string code, std::string message);
 };
 
+struct SelectResult {
+  CatalogStatus status;
+  std::vector<parser::ColumnDefinition> columns;
+  std::vector<std::vector<parser::ValueLiteral>> rows;
+};
+
 class MemoryCatalog {
  public:
   MemoryCatalog() = default;
 
   [[nodiscard]] CatalogStatus CreateTable(const parser::CreateTableStatement& statement);
   [[nodiscard]] CatalogStatus InsertRow(const parser::InsertStatement& statement);
+  [[nodiscard]] SelectResult SelectAll(const parser::SelectStatement& statement) const;
 
   [[nodiscard]] bool HasTable(std::string_view table_name) const;
   [[nodiscard]] std::size_t RowCount(std::string_view table_name) const;

@@ -43,12 +43,23 @@ TEST(ParserInsert, ParsesInsertStatementWithLiterals) {
   EXPECT_EQ(std::get<std::string>(insert.values[1].value), "alice");
 }
 
+TEST(ParserSelect, ParsesSelectAllStatement) {
+  const atlasdb::parser::ParseResult result = atlasdb::parser::ParseSql("SELECT * FROM users;");
+
+  ASSERT_TRUE(result.ok);
+  ASSERT_TRUE(std::holds_alternative<atlasdb::parser::SelectStatement>(result.statement));
+
+  const auto& select = std::get<atlasdb::parser::SelectStatement>(result.statement);
+  EXPECT_EQ(select.table_name, "users");
+}
+
 TEST(ParserErrors, RejectsUnsupportedStatement) {
-  const atlasdb::parser::ParseResult result = atlasdb::parser::ParseSql("SELECT users;");
+  const atlasdb::parser::ParseResult result = atlasdb::parser::ParseSql("UPDATE users;");
 
   ASSERT_FALSE(result.ok);
   EXPECT_EQ(result.error.code, "E1200");
-  EXPECT_EQ(result.error.message, "unsupported statement; expected CREATE TABLE or INSERT INTO");
+  EXPECT_EQ(result.error.message,
+            "unsupported statement; expected CREATE TABLE, INSERT INTO, or SELECT * FROM");
 }
 
 TEST(ParserErrors, RejectsInvalidColumnType) {
@@ -65,6 +76,14 @@ TEST(ParserErrors, RejectsUnterminatedString) {
   ASSERT_FALSE(result.ok);
   EXPECT_EQ(result.error.code, "E1101");
   EXPECT_EQ(result.error.message, "unterminated string literal");
+}
+
+TEST(ParserErrors, RejectsMalformedSelectWithoutStar) {
+  const atlasdb::parser::ParseResult result = atlasdb::parser::ParseSql("SELECT id FROM users;");
+
+  ASSERT_FALSE(result.ok);
+  EXPECT_EQ(result.error.code, "E1401");
+  EXPECT_EQ(result.error.message, "expected '*' after SELECT");
 }
 
 }  // namespace

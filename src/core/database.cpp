@@ -1,9 +1,11 @@
 #include "atlasdb/database.hpp"
 
 #include <cctype>
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "atlasdb/parser/ast.hpp"
 #include "atlasdb/parser/parser.hpp"
@@ -25,6 +27,52 @@ std::string Trim(std::string_view input) {
   }
 
   return std::string(begin, end);
+}
+
+std::string EscapeSingleQuotes(std::string_view input) {
+  std::string escaped;
+  escaped.reserve(input.size());
+
+  for (const char value : input) {
+    if (value == '\'') {
+      escaped.push_back('\'');
+    }
+    escaped.push_back(value);
+  }
+
+  return escaped;
+}
+
+std::string FormatLiteral(const parser::ValueLiteral& literal) {
+  if (std::holds_alternative<std::int64_t>(literal.value)) {
+    return std::to_string(std::get<std::int64_t>(literal.value));
+  }
+
+  const std::string escaped = EscapeSingleQuotes(std::get<std::string>(literal.value));
+  return "'" + escaped + "'";
+}
+
+std::string FormatRowValues(const std::vector<parser::ValueLiteral>& row) {
+  std::string output = "[";
+  for (std::size_t index = 0; index < row.size(); ++index) {
+    if (index != 0U) {
+      output += ", ";
+    }
+    output += FormatLiteral(row[index]);
+  }
+  output += "]";
+  return output;
+}
+
+std::string FormatRows(const std::vector<std::vector<parser::ValueLiteral>>& rows) {
+  std::string output;
+  for (std::size_t row_index = 0; row_index < rows.size(); ++row_index) {
+    if (row_index != 0U) {
+      output += "; ";
+    }
+    output += FormatRowValues(rows[row_index]);
+  }
+  return output;
 }
 
 }  // namespace
@@ -78,14 +126,30 @@ Status DatabaseEngine::Execute(std::string_view statement) {
     return Status::Ok(last_message_);
   }
 
-  const auto& insert_statement = std::get<parser::InsertStatement>(parse_result.statement);
-  const catalog::CatalogStatus insert_status = catalog_.InsertRow(insert_statement);
-  if (!insert_status.ok) {
-    last_message_ = insert_status.code + ": " + insert_status.message;
+  if (std::holds_alternative<parser::InsertStatement>(parse_result.statement)) {
+    const auto& insert_statement = std::get<parser::InsertStatement>(parse_result.statement);
+    const catalog::CatalogStatus insert_status = catalog_.InsertRow(insert_statement);
+    if (!insert_status.ok) {
+      last_message_ = insert_status.code + ": " + insert_status.message;
+      return Status::Error(last_message_);
+    }
+
+    last_message_ = insert_status.message;
+    return Status::Ok(last_message_);
+  }
+
+  const auto& select_statement = std::get<parser::SelectStatement>(parse_result.statement);
+  const catalog::SelectResult select_result = catalog_.SelectAll(select_statement);
+  if (!select_result.status.ok) {
+    last_message_ = select_result.status.code + ": " + select_result.status.message;
     return Status::Error(last_message_);
   }
 
-  last_message_ = insert_status.message;
+  last_message_ = select_result.status.message;
+  if (!select_result.rows.empty()) {
+    last_message_ += ": " + FormatRows(select_result.rows);
+  }
+
   return Status::Ok(last_message_);
 }
 

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <variant>
 
 #include <gtest/gtest.h>
 
@@ -100,6 +101,36 @@ TEST(MemoryCatalog, RejectsInsertToUnknownTable) {
   ASSERT_FALSE(result.ok);
   EXPECT_EQ(result.code, "E2003");
   EXPECT_EQ(result.message, "table not found: users");
+}
+
+TEST(MemoryCatalog, SelectsRowsInInsertOrder) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+  ASSERT_TRUE(catalog.InsertRow(UserInsertStatement(1, "alice")).ok);
+  ASSERT_TRUE(catalog.InsertRow(UserInsertStatement(2, "bob")).ok);
+
+  atlasdb::parser::SelectStatement statement{"users"};
+  const atlasdb::catalog::SelectResult result = catalog.SelectAll(statement);
+
+  ASSERT_TRUE(result.status.ok);
+  EXPECT_EQ(result.status.message, "selected 2 row(s) from 'users'");
+  ASSERT_EQ(result.rows.size(), 2U);
+  ASSERT_EQ(result.rows[0].size(), 2U);
+  ASSERT_EQ(result.rows[1].size(), 2U);
+
+  EXPECT_EQ(std::get<std::int64_t>(result.rows[0][0].value), 1);
+  EXPECT_EQ(std::get<std::string>(result.rows[0][1].value), "alice");
+  EXPECT_EQ(std::get<std::int64_t>(result.rows[1][0].value), 2);
+  EXPECT_EQ(std::get<std::string>(result.rows[1][1].value), "bob");
+}
+
+TEST(MemoryCatalog, RejectsSelectFromUnknownTable) {
+  atlasdb::catalog::MemoryCatalog catalog;
+
+  const atlasdb::catalog::SelectResult result = catalog.SelectAll(atlasdb::parser::SelectStatement{"users"});
+  ASSERT_FALSE(result.status.ok);
+  EXPECT_EQ(result.status.code, "E2003");
+  EXPECT_EQ(result.status.message, "table not found: users");
 }
 
 }  // namespace
