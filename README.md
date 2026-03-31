@@ -12,6 +12,7 @@ Phase 0 foundation is in place:
 - Strict compiler warning policy.
 - GoogleTest test harness.
 - Minimal REPL shell and deterministic engine stub.
+- GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
 ## Project Goals
 
@@ -82,9 +83,25 @@ atlasdb> .exit
 
 ## Test
 
+Linux/macOS:
+
 ```bash
 ctest --test-dir build --output-on-failure
 ```
+
+Windows (multi-config generator):
+
+```bash
+ctest --test-dir build -C Debug --output-on-failure
+```
+
+## CI
+
+CI is defined in `.github/workflows/ci.yml` and validates:
+
+- Windows and Linux runners
+- Debug and Release configurations
+- Build and test execution for every push and pull request
 
 ## Extend
 

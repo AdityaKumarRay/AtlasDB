@@ -24,6 +24,24 @@ Run tests:
 ctest --test-dir build --output-on-failure
 ```
 
+For multi-config generators (such as Visual Studio on Windows), pass a config:
+
+```bash
+ctest --test-dir build -C Debug --output-on-failure
+```
+
+## Continuous Integration
+
+GitHub Actions workflow: `.github/workflows/ci.yml`
+
+Matrix:
+- ubuntu-latest + Debug
+- ubuntu-latest + Release
+- windows-latest + Debug
+- windows-latest + Release
+
+Each job performs configure, build, and test.
+
 ## Quality Rules
 
 - Tests must be deterministic and non-flaky.
