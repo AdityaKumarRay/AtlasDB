@@ -41,6 +41,7 @@ Current capabilities in place:
 - Phase 4 progress: deterministic pager-backed B+ tree index primitive for insert/find, recursive split propagation, and root growth.
 - Phase 4 hardening: deterministic seeded random-insert stress test now validates subtree key-range invariants and linked-leaf traversal consistency under heavy split workloads.
 - Phase 4 hardening: deterministic reopen-and-continue-insert stress coverage now validates multi-level index invariants and linked-leaf consistency across pager reopen boundaries.
+- Phase 4 integration coverage: primary-index tests now validate ordered traversal and point key lookup by joining B+ tree entries with table-store row payload decode paths.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 

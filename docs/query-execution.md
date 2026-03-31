@@ -51,6 +51,7 @@ Persistence note:
 - INSERT uses direct table-store append with deterministic rebuild fallback if append-path consistency checks fail,
 - index-page primitives now include deterministic B+ tree leaf/internal node layouts, linked-leaf cursor traversal, leaf split metadata foundations, internal separator insertion/root-split initialization helpers, and internal split promotion metadata foundations,
 - index access now also includes deterministic pager-backed BtreeIndex insert/find orchestration with recursive split propagation and root growth,
+- integration coverage now validates primary-index ordered traversal and point-key lookup by decoding table-store rows from index-provided row locations,
 - table/index page-oriented physical operators are still planned.
 
 ## Determinism Requirements

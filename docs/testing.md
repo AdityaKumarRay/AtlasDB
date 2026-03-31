@@ -26,6 +26,7 @@ Current implemented persistence-focused coverage:
 - btree index tests for initialize/open/insert/find, duplicate-key rejection, leaf-root split scans, and recursive split propagation through full internal parents with root growth checks.
 - btree index seeded random-insert stress test that validates subtree key-range invariants and linked-leaf chain consistency after heavy split workloads.
 - btree index reopen-and-continue-insert stress test that validates multi-level tree invariants and linked-leaf chain consistency across pager reopen boundaries.
+- primary-index integration tests that validate ordered traversal and point key lookup by combining B+ tree index entries with table-store row payload reads/decodes.
 - engine persistence regression test covering UPDATE/DELETE followed by SELECT across restart with page-native scan decoding.
 - engine persistence regression test covering multi-row INSERT order across restart with table-store-backed SELECT decoding.
 - engine persistence regression test covering CREATE of a new table without disturbing existing-table rows across restart.

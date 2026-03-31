@@ -11,6 +11,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 add_executable(atlasdb_unit_smoke
+  integration/primary_index_integration_test.cpp
   unit/btree_cursor_test.cpp
   unit/btree_index_test.cpp
   unit/btree_internal_node_test.cpp
