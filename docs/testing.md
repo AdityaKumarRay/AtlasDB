@@ -3,11 +3,17 @@
 ## Test Categories
 
 - Unit tests
-  - parser, catalog, codec, B+ tree nodes, WAL records.
+  - parser, catalog, page/header codecs, pager, and engine statement behavior.
 - Integration tests
   - end-to-end statement execution and persistence round trips.
 - Recovery tests
   - crash-injection and WAL replay correctness.
+
+Current implemented persistence-focused coverage:
+
+- restart round-trip for persisted catalog snapshots,
+- deterministic startup failure on corrupted snapshot magic,
+- pager reopen persistence for page_count and page reads/writes.
 
 ## Execution
 
@@ -35,6 +41,7 @@ ctest --test-dir build -C Debug --output-on-failure
 GitHub Actions workflow: `.github/workflows/ci.yml`
 
 Matrix:
+
 - ubuntu-latest + Debug
 - ubuntu-latest + Release
 - windows-latest + Debug
@@ -47,3 +54,4 @@ Each job performs configure, build, and test.
 - Tests must be deterministic and non-flaky.
 - Every bug fix adds a regression test.
 - CI should fail on warnings, compile errors, or test failures.
+- New deterministic error codes should be accompanied by direct assertion tests.

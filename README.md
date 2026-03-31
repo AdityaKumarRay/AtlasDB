@@ -13,6 +13,7 @@ Phase 0 foundation is in place:
 - GoogleTest test harness.
 - REPL plus deterministic parser and in-memory execution for CREATE TABLE, INSERT, SELECT, UPDATE, and DELETE.
 - Storage foundation includes page/header codecs plus pager file I/O and page allocation primitives.
+- Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
 ## Project Goals
@@ -55,6 +56,7 @@ Current implemented foundation:
 - Pager file open/create behavior with header bootstrap.
 - Page read/write by page id.
 - Deterministic page allocation that updates persisted page_count in page-0 header.
+- Catalog snapshot persistence metadata via page-0 `catalog_root_page` and `schema_epoch` updates.
 - Deterministic header validation error codes:
   - `E3001` invalid file magic,
   - `E3002` unsupported file format version,
@@ -68,7 +70,15 @@ Current implemented foundation:
   - `E3104` page read out of range,
   - `E3106` page write out of range,
   - `E3107` page write/flush failures,
+  - `E3108` invalid catalog metadata update request,
   - `E3110` page id space exhaustion.
+
+Catalog snapshot startup/load errors:
+
+- `E4001` invalid or truncated catalog snapshot header/magic,
+- `E4002` unsupported catalog snapshot version,
+- `E4003` snapshot payload exceeds supported size,
+- `E4004` snapshot page id overflow.
 
 ## Build
 
@@ -90,6 +100,14 @@ Start REPL:
 
 ```bash
 ./build/atlasdb_cli
+```
+
+The CLI currently uses an in-memory engine for interactive sessions.
+
+To use persisted catalog snapshots from C++ code, construct the engine with a database path:
+
+```cpp
+atlasdb::DatabaseEngine engine("atlas.db");
 ```
 
 Example session:
@@ -140,7 +158,7 @@ Recommended extension sequence:
 
 1. Parser and AST expansion for CREATE and INSERT.
 2. In-memory table catalog and row typing.
-3. Page-based persistence and row codecs.
+3. Pager-backed table row storage and row codecs (current persistence is catalog snapshots).
 4. B+ tree index insertion, search, and split handling.
 5. WAL and checkpoint recovery.
 

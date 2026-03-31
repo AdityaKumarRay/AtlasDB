@@ -19,6 +19,24 @@
 - Data pages: table rows in slotted-page layout
 - Index pages: B+ tree leaf/internal node layouts
 
+## Implemented Catalog Snapshot Layout (Current)
+
+AtlasDB now persists catalog state as deterministic snapshots.
+
+- Page 0 header stores the latest `catalog_root_page` and `schema_epoch`.
+- Snapshot pages are currently written as a contiguous page run starting at `catalog_root_page`.
+- Snapshot binary header (first 16 bytes) stores:
+  - magic bytes (`ATLSNAP\0`),
+  - snapshot format version (`1`),
+  - payload size in bytes.
+- Payload bytes are the serialized in-memory catalog (tables, typed columns, rows, and primary-key metadata).
+
+Operational behavior:
+
+- Opening a database validates page-0 metadata and loads the latest snapshot when `catalog_root_page != 0`.
+- Each successful CREATE/INSERT/UPDATE/DELETE in persistence mode writes a new full catalog snapshot and advances `schema_epoch`.
+- Older snapshots remain append-only for now; snapshot GC/compaction is a later task.
+
 ## Implemented Header Page (Current)
 
 The current implementation serializes and validates the database file header in page 0.
@@ -57,7 +75,16 @@ Current operational constraints:
 
 - page ids must be less than header.page_count for read/write,
 - newly allocated pages are appended at id = previous page_count,
-- SQL execution is still in-memory and not yet wired to pager-backed table storage.
+- SQL execution remains memory-first (full table pages are not yet implemented),
+- persistence currently captures catalog+row state via full snapshot rewrites.
+
+Deterministic snapshot-related error codes currently used:
+
+- `E4001` invalid/truncated snapshot header or magic,
+- `E4002` unsupported snapshot version,
+- `E4003` snapshot payload too large,
+- `E4004` snapshot page-id overflow,
+- `E3108` invalid pager catalog-metadata update request.
 
 ## WAL Overview
 

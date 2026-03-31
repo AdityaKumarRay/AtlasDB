@@ -19,7 +19,8 @@ AtlasDB uses a layered architecture with explicit boundaries.
 5. Index Layer
    - B+ tree implementation and cursor traversal.
 6. Durability Layer
-   - WAL append/checkpoint/recovery flow.
+   - Current: deterministic catalog snapshot load/save through pager metadata.
+   - Planned: WAL append/checkpoint/recovery flow.
 
 ## Module Boundaries
 
@@ -31,9 +32,16 @@ AtlasDB uses a layered architecture with explicit boundaries.
 - src/btree: index node logic and split operations.
 - src/txn: transaction manager and WAL.
 
+Current implemented execution path:
+
+- parser -> in-memory catalog execution for CREATE/INSERT/SELECT/UPDATE/DELETE,
+- optional persistence mode (`DatabaseEngine(path)`) wires mutating statements to pager-backed catalog snapshots,
+- startup reloads latest snapshot using page-0 metadata (`catalog_root_page`, `schema_epoch`).
+
 ## Invariants
 
 - Deterministic error messages and codes for identical invalid inputs.
 - Stable page layout once file format version is released.
+- Snapshot metadata updates are monotonic (`schema_epoch` increments per successful mutation in persistence mode).
 - B+ tree ordering invariants maintained after every mutation.
 - WAL replay is idempotent for committed transactions.

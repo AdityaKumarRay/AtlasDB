@@ -11,11 +11,13 @@
 4. Execute
    - Run statement handlers and return deterministic runtime status.
 5. Persist
-   - Route writes through pager and transaction/WAL path.
+   - In persistence mode, serialize and flush a catalog snapshot through pager metadata updates.
+   - Planned: route writes through row/page operators plus WAL path.
 
 ## Current Runtime Scope
 
 - CREATE TABLE, INSERT, SELECT \* FROM, UPDATE, and DELETE are executed against an in-memory catalog.
+- The same statement set supports optional startup/load persistence when the engine is opened with a file path.
 - Table and column identifiers are resolved case-insensitively.
 - Runtime checks currently enforced:
   - duplicate table names,
@@ -28,13 +30,16 @@
 
 Runtime errors use deterministic `E2xxx` codes.
 
+Persistence startup/write failures use deterministic `E4xxx` and pager (`E31xx`) codes.
+
 SELECT output is deterministic and currently emitted as an ordered row list in insertion order.
 UPDATE and DELETE currently affect at most one row because predicates are restricted to PRIMARY KEY equality.
 
 Persistence note:
 
 - low-level pager and page/header codecs are implemented,
-- SQL CREATE/INSERT/SELECT/UPDATE/DELETE flows are still memory-backed in the current phase.
+- catalog snapshot persistence is implemented for successful mutating statements,
+- table/index page-oriented physical operators are still planned.
 
 ## Determinism Requirements
 

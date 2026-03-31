@@ -196,6 +196,20 @@ PagerStatus Pager::AllocatePage(std::uint32_t* out_page_id) {
   return PagerStatus::Ok("allocated page");
 }
 
+PagerStatus Pager::UpdateCatalogMetadata(std::uint32_t catalog_root_page, std::uint64_t schema_epoch) {
+  if (!is_open_) {
+    return PagerStatus::Error("E3101", "pager is not open");
+  }
+
+  if (catalog_root_page != 0U && catalog_root_page >= header_.page_count) {
+    return PagerStatus::Error("E3108", "catalog root page is outside declared page count");
+  }
+
+  header_.catalog_root_page = catalog_root_page;
+  header_.schema_epoch = schema_epoch;
+  return FlushHeader();
+}
+
 PagerStatus Pager::ReadPageRaw(std::uint32_t page_id, Page* out_page) {
   if (out_page == nullptr) {
     return PagerStatus::Error("E3100", "output page pointer is null");

@@ -36,6 +36,8 @@ class Pager {
   [[nodiscard]] PagerStatus ReadPage(std::uint32_t page_id, Page* out_page);
   [[nodiscard]] PagerStatus WritePage(const Page& page);
   [[nodiscard]] PagerStatus AllocatePage(std::uint32_t* out_page_id);
+  [[nodiscard]] PagerStatus UpdateCatalogMetadata(std::uint32_t catalog_root_page,
+                                                  std::uint64_t schema_epoch);
 
  private:
   [[nodiscard]] PagerStatus ReadPageRaw(std::uint32_t page_id, Page* out_page);

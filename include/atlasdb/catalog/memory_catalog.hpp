@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <cstddef>
 #include <string>
 #include <string_view>
@@ -35,6 +36,8 @@ class MemoryCatalog {
   [[nodiscard]] SelectResult SelectAll(const parser::SelectStatement& statement) const;
   [[nodiscard]] CatalogStatus UpdateWhereEquals(const parser::UpdateStatement& statement);
   [[nodiscard]] CatalogStatus DeleteWhereEquals(const parser::DeleteStatement& statement);
+  [[nodiscard]] CatalogStatus Serialize(std::vector<std::uint8_t>* out_bytes) const;
+  [[nodiscard]] CatalogStatus Deserialize(const std::vector<std::uint8_t>& bytes);
 
   [[nodiscard]] bool HasTable(std::string_view table_name) const;
   [[nodiscard]] std::size_t RowCount(std::string_view table_name) const;

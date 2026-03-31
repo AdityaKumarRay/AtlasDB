@@ -1,5 +1,7 @@
 #include "atlasdb/catalog/memory_catalog.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
@@ -16,6 +18,181 @@ namespace {
 
 constexpr std::size_t kNoPrimaryKey = std::numeric_limits<std::size_t>::max();
 constexpr std::size_t kColumnNotFound = std::numeric_limits<std::size_t>::max();
+constexpr std::uint8_t kLiteralTagInteger = 1U;
+constexpr std::uint8_t kLiteralTagText = 2U;
+constexpr std::uint32_t kCatalogSnapshotVersion = 1U;
+constexpr std::array<std::uint8_t, 8> kCatalogSnapshotMagic = {
+    static_cast<std::uint8_t>('A'),
+    static_cast<std::uint8_t>('T'),
+    static_cast<std::uint8_t>('L'),
+    static_cast<std::uint8_t>('C'),
+    static_cast<std::uint8_t>('A'),
+    static_cast<std::uint8_t>('T'),
+    static_cast<std::uint8_t>('1'),
+    0U,
+};
+
+void AppendBytes(std::vector<std::uint8_t>* out_bytes, const std::uint8_t* input, std::size_t count) {
+  out_bytes->insert(out_bytes->end(), input, input + count);
+}
+
+void WriteUint8(std::vector<std::uint8_t>* out_bytes, std::uint8_t value) {
+  out_bytes->push_back(value);
+}
+
+void WriteUint16(std::vector<std::uint8_t>* out_bytes, std::uint16_t value) {
+  out_bytes->push_back(static_cast<std::uint8_t>(value & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 8U) & 0xFFU));
+}
+
+void WriteUint32(std::vector<std::uint8_t>* out_bytes, std::uint32_t value) {
+  out_bytes->push_back(static_cast<std::uint8_t>(value & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 8U) & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 16U) & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 24U) & 0xFFU));
+}
+
+void WriteUint64(std::vector<std::uint8_t>* out_bytes, std::uint64_t value) {
+  out_bytes->push_back(static_cast<std::uint8_t>(value & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 8U) & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 16U) & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 24U) & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 32U) & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 40U) & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 48U) & 0xFFU));
+  out_bytes->push_back(static_cast<std::uint8_t>((value >> 56U) & 0xFFU));
+}
+
+bool WriteSizedString16(std::vector<std::uint8_t>* out_bytes, std::string_view value) {
+  if (value.size() > static_cast<std::size_t>(std::numeric_limits<std::uint16_t>::max())) {
+    return false;
+  }
+
+  WriteUint16(out_bytes, static_cast<std::uint16_t>(value.size()));
+  AppendBytes(out_bytes, reinterpret_cast<const std::uint8_t*>(value.data()), value.size());
+  return true;
+}
+
+bool WriteSizedString32(std::vector<std::uint8_t>* out_bytes, std::string_view value) {
+  if (value.size() > static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max())) {
+    return false;
+  }
+
+  WriteUint32(out_bytes, static_cast<std::uint32_t>(value.size()));
+  AppendBytes(out_bytes, reinterpret_cast<const std::uint8_t*>(value.data()), value.size());
+  return true;
+}
+
+bool ReadUint8(const std::vector<std::uint8_t>& bytes, std::size_t* offset, std::uint8_t* value) {
+  if (offset == nullptr || value == nullptr) {
+    return false;
+  }
+
+  if (*offset + 1U > bytes.size()) {
+    return false;
+  }
+
+  *value = bytes[*offset];
+  *offset += 1U;
+  return true;
+}
+
+bool ReadUint16(const std::vector<std::uint8_t>& bytes, std::size_t* offset, std::uint16_t* value) {
+  if (offset == nullptr || value == nullptr) {
+    return false;
+  }
+
+  if (*offset + 2U > bytes.size()) {
+    return false;
+  }
+
+  const std::uint16_t b0 = static_cast<std::uint16_t>(bytes[*offset + 0U]);
+  const std::uint16_t b1 = static_cast<std::uint16_t>(bytes[*offset + 1U]) << 8U;
+
+  *value = static_cast<std::uint16_t>(b0 | b1);
+  *offset += 2U;
+  return true;
+}
+
+bool ReadUint32(const std::vector<std::uint8_t>& bytes, std::size_t* offset, std::uint32_t* value) {
+  if (offset == nullptr || value == nullptr) {
+    return false;
+  }
+
+  if (*offset + 4U > bytes.size()) {
+    return false;
+  }
+
+  const std::uint32_t b0 = static_cast<std::uint32_t>(bytes[*offset + 0U]);
+  const std::uint32_t b1 = static_cast<std::uint32_t>(bytes[*offset + 1U]) << 8U;
+  const std::uint32_t b2 = static_cast<std::uint32_t>(bytes[*offset + 2U]) << 16U;
+  const std::uint32_t b3 = static_cast<std::uint32_t>(bytes[*offset + 3U]) << 24U;
+
+  *value = b0 | b1 | b2 | b3;
+  *offset += 4U;
+  return true;
+}
+
+bool ReadUint64(const std::vector<std::uint8_t>& bytes, std::size_t* offset, std::uint64_t* value) {
+  if (offset == nullptr || value == nullptr) {
+    return false;
+  }
+
+  if (*offset + 8U > bytes.size()) {
+    return false;
+  }
+
+  const std::uint64_t b0 = static_cast<std::uint64_t>(bytes[*offset + 0U]);
+  const std::uint64_t b1 = static_cast<std::uint64_t>(bytes[*offset + 1U]) << 8U;
+  const std::uint64_t b2 = static_cast<std::uint64_t>(bytes[*offset + 2U]) << 16U;
+  const std::uint64_t b3 = static_cast<std::uint64_t>(bytes[*offset + 3U]) << 24U;
+  const std::uint64_t b4 = static_cast<std::uint64_t>(bytes[*offset + 4U]) << 32U;
+  const std::uint64_t b5 = static_cast<std::uint64_t>(bytes[*offset + 5U]) << 40U;
+  const std::uint64_t b6 = static_cast<std::uint64_t>(bytes[*offset + 6U]) << 48U;
+  const std::uint64_t b7 = static_cast<std::uint64_t>(bytes[*offset + 7U]) << 56U;
+
+  *value = b0 | b1 | b2 | b3 | b4 | b5 | b6 | b7;
+  *offset += 8U;
+  return true;
+}
+
+bool ReadSizedString16(const std::vector<std::uint8_t>& bytes, std::size_t* offset, std::string* value) {
+  if (offset == nullptr || value == nullptr) {
+    return false;
+  }
+
+  std::uint16_t length = 0U;
+  if (!ReadUint16(bytes, offset, &length)) {
+    return false;
+  }
+
+  if (*offset + static_cast<std::size_t>(length) > bytes.size()) {
+    return false;
+  }
+
+  value->assign(reinterpret_cast<const char*>(bytes.data() + *offset), static_cast<std::size_t>(length));
+  *offset += static_cast<std::size_t>(length);
+  return true;
+}
+
+bool ReadSizedString32(const std::vector<std::uint8_t>& bytes, std::size_t* offset, std::string* value) {
+  if (offset == nullptr || value == nullptr) {
+    return false;
+  }
+
+  std::uint32_t length = 0U;
+  if (!ReadUint32(bytes, offset, &length)) {
+    return false;
+  }
+
+  if (*offset + static_cast<std::size_t>(length) > bytes.size()) {
+    return false;
+  }
+
+  value->assign(reinterpret_cast<const char*>(bytes.data() + *offset), static_cast<std::size_t>(length));
+  *offset += static_cast<std::size_t>(length);
+  return true;
+}
 
 }  // namespace
 
@@ -229,6 +406,204 @@ CatalogStatus MemoryCatalog::DeleteWhereEquals(const parser::DeleteStatement& st
 
   table.rows.erase(table.rows.begin() + static_cast<std::ptrdiff_t>(matched_row_index));
   return CatalogStatus::Ok("deleted 1 row from '" + table.name + "'");
+}
+
+CatalogStatus MemoryCatalog::Serialize(std::vector<std::uint8_t>* out_bytes) const {
+  if (out_bytes == nullptr) {
+    return CatalogStatus::Error("E2020", "output snapshot pointer is null");
+  }
+
+  if (tables_.size() > static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max())) {
+    return CatalogStatus::Error("E2020", "table count exceeds snapshot format limit");
+  }
+
+  std::vector<std::uint8_t> bytes;
+  bytes.reserve(128U);
+  AppendBytes(&bytes, kCatalogSnapshotMagic.data(), kCatalogSnapshotMagic.size());
+  WriteUint32(&bytes, kCatalogSnapshotVersion);
+  WriteUint32(&bytes, static_cast<std::uint32_t>(tables_.size()));
+
+  std::vector<std::string> table_keys;
+  table_keys.reserve(tables_.size());
+  for (const auto& entry : tables_) {
+    table_keys.push_back(entry.first);
+  }
+  std::sort(table_keys.begin(), table_keys.end());
+
+  for (const std::string& table_key : table_keys) {
+    const Table& table = tables_.at(table_key);
+
+    if (!WriteSizedString16(&bytes, table.name)) {
+      return CatalogStatus::Error("E2020", "table name exceeds snapshot format limit");
+    }
+
+    if (table.columns.size() > static_cast<std::size_t>(std::numeric_limits<std::uint16_t>::max())) {
+      return CatalogStatus::Error("E2020", "column count exceeds snapshot format limit");
+    }
+
+    if (table.rows.size() > static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max())) {
+      return CatalogStatus::Error("E2020", "row count exceeds snapshot format limit");
+    }
+
+    WriteUint16(&bytes, static_cast<std::uint16_t>(table.columns.size()));
+    WriteUint32(&bytes, static_cast<std::uint32_t>(table.rows.size()));
+
+    for (const parser::ColumnDefinition& column : table.columns) {
+      if (!WriteSizedString16(&bytes, column.name)) {
+        return CatalogStatus::Error("E2020", "column name exceeds snapshot format limit");
+      }
+
+      WriteUint8(&bytes, static_cast<std::uint8_t>(column.type));
+      WriteUint8(&bytes, static_cast<std::uint8_t>(column.primary_key ? 1U : 0U));
+    }
+
+    for (const std::vector<parser::ValueLiteral>& row : table.rows) {
+      if (row.size() != table.columns.size()) {
+        return CatalogStatus::Error("E2020", "internal row width mismatch during snapshot serialization");
+      }
+
+      for (const parser::ValueLiteral& literal : row) {
+        if (std::holds_alternative<std::int64_t>(literal.value)) {
+          WriteUint8(&bytes, kLiteralTagInteger);
+          WriteUint64(&bytes, static_cast<std::uint64_t>(std::get<std::int64_t>(literal.value)));
+          continue;
+        }
+
+        WriteUint8(&bytes, kLiteralTagText);
+        if (!WriteSizedString32(&bytes, std::get<std::string>(literal.value))) {
+          return CatalogStatus::Error("E2020", "text literal exceeds snapshot format limit");
+        }
+      }
+    }
+  }
+
+  *out_bytes = std::move(bytes);
+  return CatalogStatus::Ok("serialized catalog snapshot");
+}
+
+CatalogStatus MemoryCatalog::Deserialize(const std::vector<std::uint8_t>& bytes) {
+  tables_.clear();
+
+  if (bytes.empty()) {
+    return CatalogStatus::Ok("loaded empty catalog snapshot");
+  }
+
+  if (bytes.size() < kCatalogSnapshotMagic.size() + 8U) {
+    return CatalogStatus::Error("E2021", "catalog snapshot is truncated");
+  }
+
+  std::size_t offset = 0U;
+  for (std::size_t index = 0; index < kCatalogSnapshotMagic.size(); ++index) {
+    if (bytes[index] != kCatalogSnapshotMagic[index]) {
+      return CatalogStatus::Error("E2021", "invalid catalog snapshot magic");
+    }
+  }
+  offset += kCatalogSnapshotMagic.size();
+
+  std::uint32_t version = 0U;
+  if (!ReadUint32(bytes, &offset, &version)) {
+    return CatalogStatus::Error("E2021", "catalog snapshot is truncated");
+  }
+
+  if (version != kCatalogSnapshotVersion) {
+    return CatalogStatus::Error("E2022", "unsupported catalog snapshot version");
+  }
+
+  std::uint32_t table_count = 0U;
+  if (!ReadUint32(bytes, &offset, &table_count)) {
+    return CatalogStatus::Error("E2021", "catalog snapshot is truncated");
+  }
+
+  for (std::uint32_t table_index = 0U; table_index < table_count; ++table_index) {
+    std::string table_name;
+    if (!ReadSizedString16(bytes, &offset, &table_name)) {
+      return CatalogStatus::Error("E2021", "catalog snapshot table name is truncated");
+    }
+
+    std::uint16_t column_count = 0U;
+    std::uint32_t row_count = 0U;
+    if (!ReadUint16(bytes, &offset, &column_count) || !ReadUint32(bytes, &offset, &row_count)) {
+      return CatalogStatus::Error("E2021", "catalog snapshot table metadata is truncated");
+    }
+
+    std::vector<parser::ColumnDefinition> columns;
+    columns.reserve(static_cast<std::size_t>(column_count));
+
+    for (std::uint16_t column_index = 0U; column_index < column_count; ++column_index) {
+      std::string column_name;
+      if (!ReadSizedString16(bytes, &offset, &column_name)) {
+        return CatalogStatus::Error("E2021", "catalog snapshot column definition is truncated");
+      }
+
+      std::uint8_t type_byte = 0U;
+      std::uint8_t primary_key_byte = 0U;
+      if (!ReadUint8(bytes, &offset, &type_byte) || !ReadUint8(bytes, &offset, &primary_key_byte)) {
+        return CatalogStatus::Error("E2021", "catalog snapshot column definition is truncated");
+      }
+
+      parser::ColumnType type = parser::ColumnType::Integer;
+      if (type_byte == static_cast<std::uint8_t>(parser::ColumnType::Integer)) {
+        type = parser::ColumnType::Integer;
+      } else if (type_byte == static_cast<std::uint8_t>(parser::ColumnType::Text)) {
+        type = parser::ColumnType::Text;
+      } else {
+        return CatalogStatus::Error("E2023", "catalog snapshot has unknown column type");
+      }
+
+      columns.push_back(parser::ColumnDefinition{column_name, type, primary_key_byte != 0U});
+    }
+
+    const CatalogStatus create_status = CreateTable(parser::CreateTableStatement{table_name, columns});
+    if (!create_status.ok) {
+      return CatalogStatus::Error("E2024", "invalid table definition in catalog snapshot");
+    }
+
+    for (std::uint32_t row_index = 0U; row_index < row_count; ++row_index) {
+      parser::InsertStatement insert_statement;
+      insert_statement.table_name = table_name;
+      insert_statement.values.reserve(static_cast<std::size_t>(column_count));
+
+      for (std::uint16_t column_index = 0U; column_index < column_count; ++column_index) {
+        std::uint8_t tag = 0U;
+        if (!ReadUint8(bytes, &offset, &tag)) {
+          return CatalogStatus::Error("E2021", "catalog snapshot row payload is truncated");
+        }
+
+        if (tag == kLiteralTagInteger) {
+          std::uint64_t encoded_value = 0U;
+          if (!ReadUint64(bytes, &offset, &encoded_value)) {
+            return CatalogStatus::Error("E2021", "catalog snapshot integer literal is truncated");
+          }
+
+          insert_statement.values.emplace_back(static_cast<std::int64_t>(encoded_value));
+          continue;
+        }
+
+        if (tag == kLiteralTagText) {
+          std::string text_value;
+          if (!ReadSizedString32(bytes, &offset, &text_value)) {
+            return CatalogStatus::Error("E2021", "catalog snapshot text literal is truncated");
+          }
+
+          insert_statement.values.emplace_back(std::move(text_value));
+          continue;
+        }
+
+        return CatalogStatus::Error("E2025", "catalog snapshot has unknown literal tag");
+      }
+
+      const CatalogStatus insert_status = InsertRow(insert_statement);
+      if (!insert_status.ok) {
+        return CatalogStatus::Error("E2026", "invalid row data in catalog snapshot");
+      }
+    }
+  }
+
+  if (offset != bytes.size()) {
+    return CatalogStatus::Error("E2027", "catalog snapshot contains trailing bytes");
+  }
+
+  return CatalogStatus::Ok("loaded catalog snapshot");
 }
 
 bool MemoryCatalog::HasTable(std::string_view table_name) const {
