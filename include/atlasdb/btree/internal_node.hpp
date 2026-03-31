@@ -33,6 +33,9 @@ inline constexpr std::size_t kInternalNodeMaxEntries =
 [[nodiscard]] InternalNodeStatus AppendInternalEntry(storage::Page* page,
                                                      const InternalEntry& entry,
                                                      std::uint16_t* out_index);
+[[nodiscard]] InternalNodeStatus InsertInternalEntry(storage::Page* page,
+                                                     const InternalEntry& entry,
+                                                     std::uint16_t* out_index);
 [[nodiscard]] InternalNodeStatus ReadInternalEntry(const storage::Page& page,
                                                    std::uint16_t index,
                                                    InternalEntry* out_entry);
@@ -45,5 +48,9 @@ inline constexpr std::size_t kInternalNodeMaxEntries =
 [[nodiscard]] InternalNodeStatus FindInternalChildForKey(const storage::Page& page,
                                                          std::int64_t key,
                                                          std::uint32_t* out_child_page_id);
+[[nodiscard]] InternalNodeStatus InitializeInternalRootFromSplit(storage::Page* page,
+                                                                 std::uint32_t left_child_page_id,
+                                                                 std::int64_t separator_key,
+                                                                 std::uint32_t right_child_page_id);
 
 }  // namespace atlasdb::btree

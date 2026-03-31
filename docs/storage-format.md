@@ -200,9 +200,11 @@ AtlasDB now includes a deterministic B+ tree internal-node primitive.
   - 64-bit signed separator key,
   - 32-bit child page id (right child for the separator range).
 - Appends require strictly increasing separator keys.
+- Ordered separator insertion supports middle/front insertion for split-propagation updates while preserving key-order invariants.
 - Child resolution for a lookup key is deterministic:
   - keys below first separator route to left child,
   - keys at/above each separator route through ordered right-child entries.
+- Root initialization from split metadata seeds a fresh internal node with the split left child and promoted separator/right child pair.
 - Layout validation enforces non-zero child ids and key-order invariants.
 
 Deterministic internal-node error codes currently used:
@@ -212,7 +214,8 @@ Deterministic internal-node error codes currently used:
 - `E5202` invalid child page id,
 - `E5203` internal-node capacity reached,
 - `E5204` appended separator key is not strictly increasing,
-- `E5205` separator entry index out of range.
+- `E5205` separator entry index out of range,
+- `E5206` root split metadata is invalid.
 
 ## Implemented B+ Tree Cursor Foundations (Current)
 

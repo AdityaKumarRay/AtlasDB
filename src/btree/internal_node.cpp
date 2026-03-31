@@ -213,6 +213,59 @@ InternalNodeStatus AppendInternalEntry(storage::Page* page,
   return InternalNodeStatus::Ok("appended internal entry");
 }
 
+InternalNodeStatus InsertInternalEntry(storage::Page* page,
+                                       const InternalEntry& entry,
+                                       std::uint16_t* out_index) {
+  if (page == nullptr) {
+    return InternalNodeStatus::Error("E5200", "internal node page pointer is null");
+  }
+
+  if (out_index == nullptr) {
+    return InternalNodeStatus::Error("E5200", "output entry index pointer is null");
+  }
+
+  if (entry.child_page_id == 0U) {
+    return InternalNodeStatus::Error("E5202", "internal entry child page id must be non-zero");
+  }
+
+  std::uint16_t entry_count = 0U;
+  const InternalNodeStatus layout_status = ValidateInternalLayout(*page, &entry_count, nullptr);
+  if (!layout_status.ok) {
+    return layout_status;
+  }
+
+  if (entry_count == static_cast<std::uint16_t>(kInternalNodeMaxEntries)) {
+    return InternalNodeStatus::Error("E5203", "internal node is full");
+  }
+
+  std::size_t insert_index = 0U;
+  while (insert_index < static_cast<std::size_t>(entry_count)) {
+    const InternalEntry current = ReadInternalEntryAt(*page, insert_index);
+    if (entry.key <= current.key) {
+      break;
+    }
+    ++insert_index;
+  }
+
+  if (insert_index < static_cast<std::size_t>(entry_count)) {
+    const InternalEntry current = ReadInternalEntryAt(*page, insert_index);
+    if (entry.key == current.key) {
+      return InternalNodeStatus::Error("E5204", "internal separator key must be unique");
+    }
+  }
+
+  for (std::size_t index = static_cast<std::size_t>(entry_count); index > insert_index; --index) {
+    const InternalEntry previous = ReadInternalEntryAt(*page, index - 1U);
+    WriteInternalEntry(page, index, previous);
+  }
+
+  WriteInternalEntry(page, insert_index, entry);
+  WriteUint16(page, kEntryCountOffset, static_cast<std::uint16_t>(entry_count + 1U));
+
+  *out_index = static_cast<std::uint16_t>(insert_index);
+  return InternalNodeStatus::Ok("inserted internal entry");
+}
+
 InternalNodeStatus ReadInternalEntry(const storage::Page& page,
                                      std::uint16_t index,
                                      InternalEntry* out_entry) {
@@ -310,6 +363,37 @@ InternalNodeStatus FindInternalChildForKey(const storage::Page& page,
 
   *out_child_page_id = candidate_child;
   return InternalNodeStatus::Ok("resolved internal child page for key");
+}
+
+InternalNodeStatus InitializeInternalRootFromSplit(storage::Page* page,
+                                                   std::uint32_t left_child_page_id,
+                                                   std::int64_t separator_key,
+                                                   std::uint32_t right_child_page_id) {
+  if (page == nullptr) {
+    return InternalNodeStatus::Error("E5200", "internal root page pointer is null");
+  }
+
+  if (left_child_page_id == 0U || right_child_page_id == 0U) {
+    return InternalNodeStatus::Error("E5202", "split child page ids must be non-zero");
+  }
+
+  if (left_child_page_id == right_child_page_id) {
+    return InternalNodeStatus::Error("E5206", "split child page ids must be distinct");
+  }
+
+  const InternalNodeStatus initialize_status = InitializeInternalNode(page, left_child_page_id);
+  if (!initialize_status.ok) {
+    return initialize_status;
+  }
+
+  std::uint16_t entry_index = 0U;
+  const InternalNodeStatus append_status =
+      AppendInternalEntry(page, InternalEntry{separator_key, right_child_page_id}, &entry_index);
+  if (!append_status.ok) {
+    return append_status;
+  }
+
+  return InternalNodeStatus::Ok("initialized internal root from split metadata");
 }
 
 }  // namespace atlasdb::btree

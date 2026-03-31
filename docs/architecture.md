@@ -48,6 +48,7 @@ Current implemented execution path:
 - index layer now also includes a deterministic B+ tree internal-node primitive for ordered separators and child-page routing.
 - index layer now includes a deterministic pager-backed linked-leaf cursor primitive for seek and next traversal.
 - index layer now includes deterministic leaf split logic that produces promoted separator metadata for parent update paths.
+- index layer now includes deterministic internal separator insertion and split-root initialization helpers for parent update paths.
 
 ## Invariants
 
