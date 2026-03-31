@@ -11,7 +11,7 @@ Phase-wise progress:
 - [x] Phase 0: Project foundation, CI matrix, and repo hygiene.
 - [x] Phase 1: Deterministic parser + diagnostics for CREATE/INSERT/SELECT/UPDATE/DELETE.
 - [x] Phase 2: In-memory catalog execution for CRUD with deterministic runtime checks.
-- [-] Phase 3: Pager-backed persistence foundations and page-native table storage primitives.
+- [x] Phase 3: Pager-backed persistence foundations and page-native table storage primitives.
 - [ ] Phase 4: B+ tree primary index + cursor abstraction.
 - [ ] Phase 5: Secondary indexes, planner, prepared statements.
 - [ ] Phase 6: Transactions, WAL, checkpoint, recovery.
