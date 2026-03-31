@@ -22,6 +22,7 @@ if(ATLASDB_ENABLE_SANITIZERS)
 endif()
 
 add_library(atlasdb STATIC
+  src/btree/internal_node.cpp
   src/btree/leaf_node.cpp
   src/catalog/memory_catalog.cpp
   src/core/database.cpp

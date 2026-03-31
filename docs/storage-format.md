@@ -185,6 +185,33 @@ Deterministic leaf-node error codes currently used:
 - `E5104` appended key is not strictly increasing,
 - `E5105` key not found.
 
+## Implemented B+ Tree Internal-Node Foundations (Current)
+
+AtlasDB now includes a deterministic B+ tree internal-node primitive.
+
+- Internal page header stores:
+  - magic (`ATLBIN\0\0`),
+  - format version,
+  - separator entry count,
+  - left-child page id.
+- Each internal separator entry is fixed-width and stores:
+  - 64-bit signed separator key,
+  - 32-bit child page id (right child for the separator range).
+- Appends require strictly increasing separator keys.
+- Child resolution for a lookup key is deterministic:
+  - keys below first separator route to left child,
+  - keys at/above each separator route through ordered right-child entries.
+- Layout validation enforces non-zero child ids and key-order invariants.
+
+Deterministic internal-node error codes currently used:
+
+- `E5200` null pointer argument,
+- `E5201` invalid internal-node layout/magic/version/order,
+- `E5202` invalid child page id,
+- `E5203` internal-node capacity reached,
+- `E5204` appended separator key is not strictly increasing,
+- `E5205` separator entry index out of range.
+
 ## WAL Overview
 
 - Append-only log records with checksums.
