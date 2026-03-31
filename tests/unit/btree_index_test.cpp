@@ -587,4 +587,105 @@ TEST(BtreeIndex, RandomizedInsertMaintainsTreeInvariants) {
   RemoveIfExists(path);
 }
 
+TEST(BtreeIndex, ReopenAndContinueInsertMaintainsInvariants) {
+  const std::filesystem::path path = UniqueDbPath();
+
+  std::uint32_t persisted_root_page_id = 0U;
+
+  {
+    atlasdb::storage::Pager pager;
+    ASSERT_TRUE(pager.Open(path.string()).ok);
+
+    atlasdb::btree::BtreeIndex index(&pager);
+    ASSERT_TRUE(index.Initialize(&persisted_root_page_id).ok);
+
+    std::vector<std::int64_t> initial_keys;
+    initial_keys.reserve(2000U);
+    for (std::int64_t key = 1; key <= 2000; ++key) {
+      initial_keys.push_back(key);
+    }
+
+    std::mt19937_64 initial_random(0xBEEFFACE1234ULL);
+    std::shuffle(initial_keys.begin(), initial_keys.end(), initial_random);
+
+    for (const std::int64_t key : initial_keys) {
+      const atlasdb::btree::BtreeIndexStatus status =
+          index.Insert(atlasdb::btree::LeafEntry{
+              key,
+              static_cast<std::uint32_t>(300000U + static_cast<std::uint32_t>(key)),
+              static_cast<std::uint16_t>(key % 4096)});
+      ASSERT_TRUE(status.ok);
+    }
+
+    ASSERT_TRUE(index.GetRootPageId(&persisted_root_page_id).ok);
+    pager.Close();
+  }
+
+  {
+    atlasdb::storage::Pager pager;
+    ASSERT_TRUE(pager.Open(path.string()).ok);
+
+    atlasdb::btree::BtreeIndex index(&pager);
+    ASSERT_TRUE(index.Open(persisted_root_page_id).ok);
+
+    for (const std::int64_t key : {1LL, 500LL, 1500LL, 2000LL}) {
+      atlasdb::btree::LeafEntry found;
+      const atlasdb::btree::BtreeIndexStatus find_status = index.Find(key, &found);
+      ASSERT_TRUE(find_status.ok);
+      EXPECT_EQ(found.key, key);
+      EXPECT_EQ(found.row_page_id,
+                static_cast<std::uint32_t>(300000U + static_cast<std::uint32_t>(key)));
+    }
+
+    std::vector<std::int64_t> additional_keys;
+    additional_keys.reserve(1500U);
+    for (std::int64_t key = 2001; key <= 3500; ++key) {
+      additional_keys.push_back(key);
+    }
+
+    std::mt19937_64 additional_random(0x1234C0FFEE55ULL);
+    std::shuffle(additional_keys.begin(), additional_keys.end(), additional_random);
+
+    for (const std::int64_t key : additional_keys) {
+      const atlasdb::btree::BtreeIndexStatus status =
+          index.Insert(atlasdb::btree::LeafEntry{
+              key,
+              static_cast<std::uint32_t>(300000U + static_cast<std::uint32_t>(key)),
+              static_cast<std::uint16_t>(key % 4096)});
+      ASSERT_TRUE(status.ok);
+    }
+
+    for (const std::int64_t key : {2100LL, 2750LL, 3200LL, 3499LL}) {
+      atlasdb::btree::LeafEntry found;
+      const atlasdb::btree::BtreeIndexStatus find_status = index.Find(key, &found);
+      ASSERT_TRUE(find_status.ok);
+      EXPECT_EQ(found.key, key);
+      EXPECT_EQ(found.row_page_id,
+                static_cast<std::uint32_t>(300000U + static_cast<std::uint32_t>(key)));
+    }
+
+    std::uint32_t current_root_page_id = 0U;
+    ASSERT_TRUE(index.GetRootPageId(&current_root_page_id).ok);
+
+    InvariantTraversal traversal;
+    const ::testing::AssertionResult subtree_result =
+        ValidateSubtree(&pager, current_root_page_id, std::nullopt, std::nullopt, &traversal);
+    ASSERT_TRUE(subtree_result);
+
+    ASSERT_EQ(traversal.keys_in_order.size(), 3500U);
+    for (std::size_t index_in_order = 0U; index_in_order < traversal.keys_in_order.size(); ++index_in_order) {
+      EXPECT_EQ(traversal.keys_in_order[index_in_order],
+                static_cast<std::int64_t>(index_in_order + 1U));
+    }
+
+    const ::testing::AssertionResult chain_result =
+        ValidateLeafChainMatchesTraversal(&pager, &index, traversal);
+    ASSERT_TRUE(chain_result);
+
+    pager.Close();
+  }
+
+  RemoveIfExists(path);
+}
+
 }  // namespace
