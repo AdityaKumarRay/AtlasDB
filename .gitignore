@@ -1,0 +1,59 @@
+# Build directories
+/build/
+/out/
+/dist/
+/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CTestTestfile.cmake
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+Testing/
+
+# Ninja / Make
+.ninja_deps
+.ninja_log
+build.ninja
+*.make
+*.ninja
+
+# Binaries and objects
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.pdb
+
+# IDE/editor
+.vscode/
+.vs/
+.idea/
+*.user
+*.suo
+
+# Logs and temporary artifacts
+*.log
+*.tmp
+*.temp
+*.swp
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Internal workflow and agent files
+AGENT_STATE.md
+PLAN.md
+plan.md
+.agent/
+scratch/
+prompts/
+workflow-logs/
+*.agent.md
+*.scratch.md
