@@ -23,6 +23,13 @@ struct LeafEntry {
   std::uint16_t row_slot_index{0};
 };
 
+struct LeafSplitMetadata {
+  std::int64_t promoted_key{0};
+  std::uint16_t left_entry_count{0};
+  std::uint16_t right_entry_count{0};
+  std::uint32_t right_page_id{0};
+};
+
 inline constexpr std::uint16_t kLeafNodeFormatVersion = 1U;
 inline constexpr std::size_t kLeafNodeHeaderSize = 24U;
 inline constexpr std::size_t kLeafNodeEntrySize = 16U;
@@ -46,5 +53,8 @@ inline constexpr std::size_t kLeafNodeMaxEntries =
                                              std::uint32_t next_page_id);
 [[nodiscard]] LeafNodeStatus GetLeafNextPage(const storage::Page& page,
                                              std::uint32_t* out_next_page_id);
+[[nodiscard]] LeafNodeStatus SplitLeafNode(storage::Page* left_page,
+                                           storage::Page* right_page,
+                                           LeafSplitMetadata* out_metadata);
 
 }  // namespace atlasdb::btree

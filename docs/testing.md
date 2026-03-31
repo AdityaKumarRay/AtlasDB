@@ -19,6 +19,7 @@ Current implemented persistence-focused coverage:
 - slotted row-page tests for append/read/count behavior plus E3301/E3303/E3304/E3305 structural validation failures.
 - table-store tests for initialize/append/read/row-count, scan ordering across multi-page growth, and deterministic E3402/E3404/E3405 path checks.
 - btree leaf-node tests for initialize/append/read/find/next-page behavior plus deterministic E5101/E5103/E5104/E5105 invariant failures.
+- btree leaf-node tests now also cover deterministic leaf split distribution/link-preservation and split precondition failures (`E5106`).
 - btree internal-node tests for initialize/append/read/child-routing/left-child behavior plus deterministic E5201/E5203/E5204/E5205 invariant failures.
 - btree cursor tests for seek/seek-first/next traversal across linked leaves plus deterministic E5301/E5302/E5304/E5305 edge-path checks.
 - engine persistence regression test covering UPDATE/DELETE followed by SELECT across restart with page-native scan decoding.

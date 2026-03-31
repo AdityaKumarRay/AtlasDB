@@ -174,6 +174,7 @@ AtlasDB now includes a deterministic B+ tree leaf-node primitive.
   - 16-bit row slot index.
 - Appends require strictly increasing keys.
 - Key lookup uses ordered in-page binary search.
+- Leaf split operation redistributes ordered entries into left/right pages, updates linked-leaf next pointers, and emits promoted separator metadata.
 - Layout validation enforces key-order and entry-count invariants.
 
 Deterministic leaf-node error codes currently used:
@@ -183,7 +184,8 @@ Deterministic leaf-node error codes currently used:
 - `E5102` entry index out of range,
 - `E5103` leaf-node capacity reached,
 - `E5104` appended key is not strictly increasing,
-- `E5105` key not found.
+- `E5105` key not found,
+- `E5106` leaf split precondition/layout requirement failed.
 
 ## Implemented B+ Tree Internal-Node Foundations (Current)
 

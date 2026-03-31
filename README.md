@@ -35,6 +35,7 @@ Current capabilities in place:
 - Phase 4 kickoff: deterministic B+ tree leaf-node page primitive with append/read/search/next-leaf operations.
 - Phase 4 progress: deterministic B+ tree internal-node page primitive with ordered separator keys and child-page routing.
 - Phase 4 progress: deterministic pager-backed linked-leaf cursor primitive with seek/next traversal.
+- Phase 4 progress: deterministic leaf split primitive that emits separator-promotion metadata and preserves linked-leaf traversal order.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 

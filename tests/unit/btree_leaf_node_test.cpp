@@ -167,4 +167,91 @@ TEST(BtreeLeafNode, SetsAndGetsNextLeafPage) {
   EXPECT_EQ(next_page, 902U);
 }
 
+TEST(BtreeLeafNode, SplitLeafNodeDistributesEntriesAndPreservesLeafLinks) {
+  atlasdb::storage::Page left_page = atlasdb::storage::CreateZeroedPage(401U);
+  atlasdb::storage::Page right_page = atlasdb::storage::CreateZeroedPage(402U);
+
+  ASSERT_TRUE(atlasdb::btree::InitializeLeafNode(&left_page).ok);
+
+  std::uint16_t index = 0U;
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&left_page, Entry(10, 1010, 1), &index).ok);
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&left_page, Entry(20, 1020, 2), &index).ok);
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&left_page, Entry(30, 1030, 3), &index).ok);
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&left_page, Entry(40, 1040, 4), &index).ok);
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&left_page, Entry(50, 1050, 5), &index).ok);
+  ASSERT_TRUE(atlasdb::btree::SetLeafNextPage(&left_page, 900U).ok);
+
+  atlasdb::btree::LeafSplitMetadata metadata;
+  const atlasdb::btree::LeafNodeStatus split_status =
+      atlasdb::btree::SplitLeafNode(&left_page, &right_page, &metadata);
+
+  ASSERT_TRUE(split_status.ok);
+  EXPECT_EQ(metadata.promoted_key, 30);
+  EXPECT_EQ(metadata.left_entry_count, 2U);
+  EXPECT_EQ(metadata.right_entry_count, 3U);
+  EXPECT_EQ(metadata.right_page_id, 402U);
+
+  std::uint16_t left_count = 0U;
+  std::uint16_t right_count = 0U;
+  ASSERT_TRUE(atlasdb::btree::GetLeafEntryCount(left_page, &left_count).ok);
+  ASSERT_TRUE(atlasdb::btree::GetLeafEntryCount(right_page, &right_count).ok);
+  EXPECT_EQ(left_count, 2U);
+  EXPECT_EQ(right_count, 3U);
+
+  std::uint32_t left_next = 0U;
+  std::uint32_t right_next = 0U;
+  ASSERT_TRUE(atlasdb::btree::GetLeafNextPage(left_page, &left_next).ok);
+  ASSERT_TRUE(atlasdb::btree::GetLeafNextPage(right_page, &right_next).ok);
+  EXPECT_EQ(left_next, 402U);
+  EXPECT_EQ(right_next, 900U);
+
+  atlasdb::btree::LeafEntry left_first;
+  atlasdb::btree::LeafEntry left_second;
+  atlasdb::btree::LeafEntry right_first;
+  atlasdb::btree::LeafEntry right_third;
+  ASSERT_TRUE(atlasdb::btree::ReadLeafEntry(left_page, 0U, &left_first).ok);
+  ASSERT_TRUE(atlasdb::btree::ReadLeafEntry(left_page, 1U, &left_second).ok);
+  ASSERT_TRUE(atlasdb::btree::ReadLeafEntry(right_page, 0U, &right_first).ok);
+  ASSERT_TRUE(atlasdb::btree::ReadLeafEntry(right_page, 2U, &right_third).ok);
+  EXPECT_EQ(left_first.key, 10);
+  EXPECT_EQ(left_second.key, 20);
+  EXPECT_EQ(right_first.key, 30);
+  EXPECT_EQ(right_third.key, 50);
+}
+
+TEST(BtreeLeafNode, SplitLeafNodeRejectsTooFewEntries) {
+  atlasdb::storage::Page left_page = atlasdb::storage::CreateZeroedPage(403U);
+  atlasdb::storage::Page right_page = atlasdb::storage::CreateZeroedPage(404U);
+
+  ASSERT_TRUE(atlasdb::btree::InitializeLeafNode(&left_page).ok);
+
+  std::uint16_t index = 0U;
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&left_page, Entry(10, 1010, 1), &index).ok);
+
+  atlasdb::btree::LeafSplitMetadata metadata;
+  const atlasdb::btree::LeafNodeStatus status =
+      atlasdb::btree::SplitLeafNode(&left_page, &right_page, &metadata);
+
+  ASSERT_FALSE(status.ok);
+  EXPECT_EQ(status.code, "E5106");
+}
+
+TEST(BtreeLeafNode, SplitLeafNodeRejectsInvalidRightPageId) {
+  atlasdb::storage::Page left_page = atlasdb::storage::CreateZeroedPage(405U);
+  atlasdb::storage::Page right_page = atlasdb::storage::CreateZeroedPage(0U);
+
+  ASSERT_TRUE(atlasdb::btree::InitializeLeafNode(&left_page).ok);
+
+  std::uint16_t index = 0U;
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&left_page, Entry(10, 1010, 1), &index).ok);
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&left_page, Entry(20, 1020, 2), &index).ok);
+
+  atlasdb::btree::LeafSplitMetadata metadata;
+  const atlasdb::btree::LeafNodeStatus status =
+      atlasdb::btree::SplitLeafNode(&left_page, &right_page, &metadata);
+
+  ASSERT_FALSE(status.ok);
+  EXPECT_EQ(status.code, "E5106");
+}
+
 }  // namespace
