@@ -44,6 +44,7 @@ Current implemented execution path:
 - persistence-mode INSERT now appends into table-store pages after catalog+snapshot success, with rebuild fallback for consistency.
 - persistence-mode UPDATE now rebuilds only the affected table-store from catalog rows, with fallback to full table-store rebuild.
 - persistence-mode DELETE now rebuilds only the affected table-store from catalog rows, with fallback to full table-store rebuild.
+- index layer now includes a deterministic B+ tree leaf-node primitive for ordered key/row-location entries and next-leaf links.
 
 ## Invariants
 

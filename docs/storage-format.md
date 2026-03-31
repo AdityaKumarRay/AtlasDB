@@ -159,6 +159,32 @@ Deterministic table-store error codes currently used:
 - `E3405` row location page does not belong to table,
 - `E3406` directory entry capacity exhausted.
 
+## Implemented B+ Tree Leaf-Node Foundations (Current)
+
+AtlasDB now includes a deterministic B+ tree leaf-node primitive.
+
+- Leaf page header stores:
+  - magic (`ATLBLF\0\0`),
+  - format version,
+  - entry count,
+  - next-leaf page id.
+- Each leaf entry is fixed-width and stores:
+  - 64-bit signed key,
+  - 32-bit row page id,
+  - 16-bit row slot index.
+- Appends require strictly increasing keys.
+- Key lookup uses ordered in-page binary search.
+- Layout validation enforces key-order and entry-count invariants.
+
+Deterministic leaf-node error codes currently used:
+
+- `E5100` null pointer argument,
+- `E5101` invalid leaf-node layout/magic/version/order,
+- `E5102` entry index out of range,
+- `E5103` leaf-node capacity reached,
+- `E5104` appended key is not strictly increasing,
+- `E5105` key not found.
+
 ## WAL Overview
 
 - Append-only log records with checksums.

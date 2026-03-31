@@ -12,12 +12,12 @@ Phase-wise progress:
 - [x] Phase 1: Deterministic parser + diagnostics for CREATE/INSERT/SELECT/UPDATE/DELETE.
 - [x] Phase 2: In-memory catalog execution for CRUD with deterministic runtime checks.
 - [x] Phase 3: Pager-backed persistence foundations and page-native table storage primitives.
-- [ ] Phase 4: B+ tree primary index + cursor abstraction.
+- [-] Phase 4: B+ tree primary index + cursor abstraction.
 - [ ] Phase 5: Secondary indexes, planner, prepared statements.
 - [ ] Phase 6: Transactions, WAL, checkpoint, recovery.
 - [ ] Phase 7: Hardening, benchmarks, and release-readiness polish.
 
-Current Phase 3 capabilities in place:
+Current capabilities in place:
 
 - C++20 + CMake project layout.
 - Strict compiler warning policy.
@@ -32,6 +32,7 @@ Current Phase 3 capabilities in place:
 - Persistence-mode INSERT now appends directly to table-store pages after catalog+snapshot success, with deterministic fallback rebuild on append-path failures.
 - Persistence-mode UPDATE now rebuilds only the updated table's table-store pages after catalog+snapshot success, with deterministic fallback to full rebuild on table-scoped rebuild failures.
 - Persistence-mode DELETE now rebuilds only the deleted table's table-store pages after catalog+snapshot success, with deterministic fallback to full rebuild on table-scoped rebuild failures.
+- Phase 4 kickoff: deterministic B+ tree leaf-node page primitive with append/read/search/next-leaf operations.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
@@ -132,6 +133,15 @@ Table store errors:
 - `E3404` directory row-count integrity mismatch during scan,
 - `E3405` requested row page is not part of table directory,
 - `E3406` table-directory entry capacity reached.
+
+B+ tree leaf-node errors:
+
+- `E5100` null pointer for required output/argument,
+- `E5101` invalid leaf-node layout/magic/version/order,
+- `E5102` entry index out of range,
+- `E5103` leaf node is full,
+- `E5104` appended key is not strictly increasing,
+- `E5105` key not found in leaf node.
 
 ## Build
 

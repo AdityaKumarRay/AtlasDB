@@ -18,6 +18,7 @@ Current implemented persistence-focused coverage:
 - row codec unit tests for round-trip plus E3201/E3202/E3204/E3205/E3206 deterministic decode/encode failures.
 - slotted row-page tests for append/read/count behavior plus E3301/E3303/E3304/E3305 structural validation failures.
 - table-store tests for initialize/append/read/row-count, scan ordering across multi-page growth, and deterministic E3402/E3404/E3405 path checks.
+- btree leaf-node tests for initialize/append/read/find/next-page behavior plus deterministic E5101/E5103/E5104/E5105 invariant failures.
 - engine persistence regression test covering UPDATE/DELETE followed by SELECT across restart with page-native scan decoding.
 - engine persistence regression test covering multi-row INSERT order across restart with table-store-backed SELECT decoding.
 - engine persistence regression test covering CREATE of a new table without disturbing existing-table rows across restart.
