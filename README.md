@@ -38,6 +38,7 @@ Current capabilities in place:
 - Phase 4 progress: deterministic leaf split primitive that emits separator-promotion metadata and preserves linked-leaf traversal order.
 - Phase 4 progress: deterministic internal separator insertion and root-from-split initialization helpers for split-propagation scaffolding.
 - Phase 4 progress: deterministic internal split primitive that emits promoted separator metadata for parent split propagation.
+- Phase 4 progress: deterministic pager-backed B+ tree index primitive for insert/find, recursive split propagation, and root growth.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
@@ -167,6 +168,14 @@ B+ tree cursor errors:
 - `E5303` pager read failed during cursor traversal,
 - `E5304` cursor is not positioned on a valid entry,
 - `E5305` leaf-chain traversal integrity failure.
+
+B+ tree index errors:
+
+- `E5400` null pointer for required output/argument,
+- `E5401` index pager is unavailable/not open,
+- `E5402` unknown root/tree node type,
+- `E5403` index root page id is invalid/uninitialized,
+- `E5405` index traversal integrity bound exceeded.
 
 ## Build
 

@@ -49,6 +49,44 @@ TEST(BtreeLeafNode, AppendsAndReadsEntriesInOrder) {
   EXPECT_EQ(read_entry.row_slot_index, 2U);
 }
 
+TEST(BtreeLeafNode, InsertsEntryInMiddleAndPreservesOrder) {
+  atlasdb::storage::Page page = atlasdb::storage::CreateZeroedPage(310U);
+  ASSERT_TRUE(atlasdb::btree::InitializeLeafNode(&page).ok);
+
+  std::uint16_t index = 0U;
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&page, Entry(10, 1010U, 1U), &index).ok);
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&page, Entry(30, 1030U, 3U), &index).ok);
+
+  std::uint16_t insert_index = 99U;
+  ASSERT_TRUE(atlasdb::btree::InsertLeafEntry(&page, Entry(20, 1020U, 2U), &insert_index).ok);
+  EXPECT_EQ(insert_index, 1U);
+
+  atlasdb::btree::LeafEntry first;
+  atlasdb::btree::LeafEntry second;
+  atlasdb::btree::LeafEntry third;
+  ASSERT_TRUE(atlasdb::btree::ReadLeafEntry(page, 0U, &first).ok);
+  ASSERT_TRUE(atlasdb::btree::ReadLeafEntry(page, 1U, &second).ok);
+  ASSERT_TRUE(atlasdb::btree::ReadLeafEntry(page, 2U, &third).ok);
+
+  EXPECT_EQ(first.key, 10);
+  EXPECT_EQ(second.key, 20);
+  EXPECT_EQ(third.key, 30);
+}
+
+TEST(BtreeLeafNode, RejectsInsertWithDuplicateKey) {
+  atlasdb::storage::Page page = atlasdb::storage::CreateZeroedPage(311U);
+  ASSERT_TRUE(atlasdb::btree::InitializeLeafNode(&page).ok);
+
+  std::uint16_t index = 0U;
+  ASSERT_TRUE(atlasdb::btree::AppendLeafEntry(&page, Entry(20, 1200U, 1U), &index).ok);
+
+  const atlasdb::btree::LeafNodeStatus status =
+      atlasdb::btree::InsertLeafEntry(&page, Entry(20, 1201U, 2U), &index);
+
+  ASSERT_FALSE(status.ok);
+  EXPECT_EQ(status.code, "E5104");
+}
+
 TEST(BtreeLeafNode, FindsEntryByKeyAndReturnsIndex) {
   atlasdb::storage::Page page = atlasdb::storage::CreateZeroedPage(303U);
   ASSERT_TRUE(atlasdb::btree::InitializeLeafNode(&page).ok);

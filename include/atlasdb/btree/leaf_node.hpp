@@ -40,6 +40,9 @@ inline constexpr std::size_t kLeafNodeMaxEntries =
 [[nodiscard]] LeafNodeStatus AppendLeafEntry(storage::Page* page,
                                              const LeafEntry& entry,
                                              std::uint16_t* out_index);
+[[nodiscard]] LeafNodeStatus InsertLeafEntry(storage::Page* page,
+                                             const LeafEntry& entry,
+                                             std::uint16_t* out_index);
 [[nodiscard]] LeafNodeStatus ReadLeafEntry(const storage::Page& page,
                                            std::uint16_t index,
                                            LeafEntry* out_entry);

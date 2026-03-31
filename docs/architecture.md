@@ -50,6 +50,7 @@ Current implemented execution path:
 - index layer now includes deterministic leaf split logic that produces promoted separator metadata for parent update paths.
 - index layer now includes deterministic internal separator insertion and split-root initialization helpers for parent update paths.
 - index layer now includes deterministic internal split logic that emits promoted separator metadata for upward propagation.
+- index layer now includes deterministic pager-backed BtreeIndex orchestration for insert/find, recursive split propagation, and root growth.
 
 ## Invariants
 

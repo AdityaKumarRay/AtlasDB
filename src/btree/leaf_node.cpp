@@ -191,6 +191,55 @@ LeafNodeStatus AppendLeafEntry(storage::Page* page,
   return LeafNodeStatus::Ok("appended leaf entry");
 }
 
+LeafNodeStatus InsertLeafEntry(storage::Page* page,
+                               const LeafEntry& entry,
+                               std::uint16_t* out_index) {
+  if (page == nullptr) {
+    return LeafNodeStatus::Error("E5100", "leaf node page pointer is null");
+  }
+
+  if (out_index == nullptr) {
+    return LeafNodeStatus::Error("E5100", "output entry index pointer is null");
+  }
+
+  std::uint16_t entry_count = 0U;
+  const LeafNodeStatus layout_status = ValidateLeafLayout(*page, &entry_count);
+  if (!layout_status.ok) {
+    return layout_status;
+  }
+
+  if (entry_count == static_cast<std::uint16_t>(kLeafNodeMaxEntries)) {
+    return LeafNodeStatus::Error("E5103", "leaf node is full");
+  }
+
+  std::size_t insert_index = 0U;
+  while (insert_index < static_cast<std::size_t>(entry_count)) {
+    const LeafEntry current = ReadLeafEntryAt(*page, insert_index);
+    if (entry.key <= current.key) {
+      break;
+    }
+    ++insert_index;
+  }
+
+  if (insert_index < static_cast<std::size_t>(entry_count)) {
+    const LeafEntry current = ReadLeafEntryAt(*page, insert_index);
+    if (entry.key == current.key) {
+      return LeafNodeStatus::Error("E5104", "leaf entry key must be strictly increasing");
+    }
+  }
+
+  for (std::size_t index = static_cast<std::size_t>(entry_count); index > insert_index; --index) {
+    const LeafEntry previous = ReadLeafEntryAt(*page, index - 1U);
+    WriteLeafEntry(page, index, previous);
+  }
+
+  WriteLeafEntry(page, insert_index, entry);
+  WriteUint16(page, kEntryCountOffset, static_cast<std::uint16_t>(entry_count + 1U));
+
+  *out_index = static_cast<std::uint16_t>(insert_index);
+  return LeafNodeStatus::Ok("inserted leaf entry");
+}
+
 LeafNodeStatus ReadLeafEntry(const storage::Page& page,
                              std::uint16_t index,
                              LeafEntry* out_entry) {

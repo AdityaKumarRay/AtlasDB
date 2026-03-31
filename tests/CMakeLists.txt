@@ -12,6 +12,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(atlasdb_unit_smoke
   unit/btree_cursor_test.cpp
+  unit/btree_index_test.cpp
   unit/btree_internal_node_test.cpp
   unit/btree_leaf_node_test.cpp
   unit/memory_catalog_test.cpp

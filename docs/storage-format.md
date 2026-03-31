@@ -239,6 +239,27 @@ Deterministic cursor error codes currently used:
 - `E5304` cursor not positioned on a valid entry,
 - `E5305` leaf-chain traversal integrity failure.
 
+## Implemented B+ Tree Index Foundations (Current)
+
+AtlasDB now includes a deterministic pager-backed B+ tree index primitive.
+
+- Root initialization allocates a leaf page and binds index state to the root page id.
+- Open validates that the configured root page is a valid leaf or internal node.
+- Insert performs recursive descent through internal routing and writes leaf/internal updates back through pager pages.
+- Leaf overflow triggers deterministic leaf split + promoted separator propagation.
+- Internal overflow triggers deterministic internal split + promoted separator propagation.
+- Root overflow grows tree height by allocating a fresh internal root from split metadata.
+- Find resolves the target leaf via internal routing and performs deterministic leaf key lookup.
+- First-leaf resolution supports ordered scans through the linked-leaf cursor.
+
+Deterministic index error codes currently used:
+
+- `E5400` null pointer argument,
+- `E5401` pager not open for index operations,
+- `E5402` unknown B+ tree node magic/type,
+- `E5403` invalid/uninitialized root or page id,
+- `E5405` traversal exceeded declared page-count bound.
+
 ## WAL Overview
 
 - Append-only log records with checksums.
