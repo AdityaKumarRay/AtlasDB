@@ -5,8 +5,10 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include "atlasdb/catalog/memory_catalog.hpp"
+#include "atlasdb/planner/rule_planner.hpp"
 #include "atlasdb/storage/pager.hpp"
 
 namespace atlasdb {
@@ -34,8 +36,12 @@ class DatabaseEngine {
   [[nodiscard]] Status RebuildSingleTableStore(std::string_view table_name);
   [[nodiscard]] Status InitializeCreateTableStore(const parser::CreateTableStatement& statement);
   [[nodiscard]] Status AppendInsertToTableStore(const parser::InsertStatement& statement);
+  [[nodiscard]] std::vector<planner::TablePlanningMetadata> BuildPlanningMetadata() const;
+  [[nodiscard]] Status PlanStatementForExecution(const parser::Statement& statement,
+                                                 planner::QueryPlan* out_plan) const;
 
   catalog::MemoryCatalog catalog_;
+  planner::RulePlanner planner_{};
   std::unique_ptr<storage::Pager> pager_{};
   std::unordered_map<std::string, std::uint32_t> table_store_roots_{};
   std::uint64_t schema_epoch_{0};

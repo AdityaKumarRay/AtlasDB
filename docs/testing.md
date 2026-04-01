@@ -28,6 +28,7 @@ Current implemented persistence-focused coverage:
 - btree index reopen-and-continue-insert stress test that validates multi-level tree invariants and linked-leaf chain consistency across pager reopen boundaries.
 - rule planner tests for deterministic access-path selection (table scan vs primary-key index lookup), insert index-maintenance intent, and E6100/E6102/E6103 validation paths.
 - primary-index integration tests that validate ordered traversal and point key lookup by combining B+ tree index entries with table-store row payload reads/decodes.
+- engine regression test that validates runtime planner wiring preserves deterministic E2008 catalog primary-key validation for tables without PRIMARY KEY metadata.
 - engine persistence regression test covering UPDATE/DELETE followed by SELECT across restart with page-native scan decoding.
 - engine persistence regression test covering multi-row INSERT order across restart with table-store-backed SELECT decoding.
 - engine persistence regression test covering CREATE of a new table without disturbing existing-table rows across restart.

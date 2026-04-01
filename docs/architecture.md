@@ -52,7 +52,7 @@ Current implemented execution path:
 - index layer now includes deterministic internal separator insertion and split-root initialization helpers for parent update paths.
 - index layer now includes deterministic internal split logic that emits promoted separator metadata for upward propagation.
 - index layer now includes deterministic pager-backed BtreeIndex orchestration for insert/find, recursive split propagation, and root growth.
-- planner module is currently unit-tested and not yet connected to runtime execution dispatch.
+- runtime now invokes RulePlanner before statement execution dispatch while execution paths still intentionally use existing catalog/table-store handlers until index-backed dispatch slices land.
 
 ## Invariants
 

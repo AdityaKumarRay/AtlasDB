@@ -441,6 +441,85 @@ Status DatabaseEngine::AppendInsertToTableStore(const parser::InsertStatement& s
   return Status::Ok("appended row into table-store page");
 }
 
+std::vector<planner::TablePlanningMetadata> DatabaseEngine::BuildPlanningMetadata() const {
+  std::vector<planner::TablePlanningMetadata> metadata_list;
+  const std::vector<catalog::TableSnapshot> tables = catalog_.SnapshotTables();
+  metadata_list.reserve(tables.size());
+
+  for (const catalog::TableSnapshot& table : tables) {
+    planner::TablePlanningMetadata metadata;
+    metadata.table_name = table.name;
+
+    for (const parser::ColumnDefinition& column : table.columns) {
+      if (column.primary_key) {
+        metadata.primary_key_column = column.name;
+        break;
+      }
+    }
+
+    // Primary-key index maintenance wiring is introduced in a later Phase 5 increment.
+    metadata.has_primary_key_index = false;
+    metadata_list.push_back(std::move(metadata));
+  }
+
+  return metadata_list;
+}
+
+Status DatabaseEngine::PlanStatementForExecution(const parser::Statement& statement,
+                                                 planner::QueryPlan* out_plan) const {
+  if (out_plan == nullptr) {
+    return Status::Error("E6100: output query plan pointer is null");
+  }
+
+  planner::QueryPlan fallback_plan;
+
+  if (std::holds_alternative<parser::CreateTableStatement>(statement)) {
+    const auto& create_statement = std::get<parser::CreateTableStatement>(statement);
+    fallback_plan.operation = planner::PlanOperation::CreateTable;
+    fallback_plan.table_name = create_statement.table_name;
+  } else if (std::holds_alternative<parser::InsertStatement>(statement)) {
+    const auto& insert_statement = std::get<parser::InsertStatement>(statement);
+    fallback_plan.operation = planner::PlanOperation::Insert;
+    fallback_plan.table_name = insert_statement.table_name;
+  } else if (std::holds_alternative<parser::SelectStatement>(statement)) {
+    const auto& select_statement = std::get<parser::SelectStatement>(statement);
+    fallback_plan.operation = planner::PlanOperation::Select;
+    fallback_plan.access_path = planner::PlanAccessPath::TableScan;
+    fallback_plan.table_name = select_statement.table_name;
+  } else if (std::holds_alternative<parser::UpdateStatement>(statement)) {
+    const auto& update_statement = std::get<parser::UpdateStatement>(statement);
+    fallback_plan.operation = planner::PlanOperation::Update;
+    fallback_plan.access_path = planner::PlanAccessPath::TableScan;
+    fallback_plan.table_name = update_statement.table_name;
+  } else {
+    const auto& delete_statement = std::get<parser::DeleteStatement>(statement);
+    fallback_plan.operation = planner::PlanOperation::Delete;
+    fallback_plan.access_path = planner::PlanAccessPath::TableScan;
+    fallback_plan.table_name = delete_statement.table_name;
+  }
+
+  *out_plan = fallback_plan;
+
+  const bool requires_existing_table = fallback_plan.operation != planner::PlanOperation::CreateTable;
+  if (requires_existing_table && !catalog_.HasTable(fallback_plan.table_name)) {
+    return Status::Ok("planner deferred until table exists");
+  }
+
+  planner::QueryPlan planned_query;
+  const planner::PlannerStatus planner_status =
+      planner_.Plan(statement, BuildPlanningMetadata(), &planned_query);
+  if (!planner_status.ok) {
+    if (planner_status.code == "E6102" || planner_status.code == "E6103") {
+      return Status::Ok("planner deferred to catalog runtime validation");
+    }
+
+    return Status::Error(planner_status.code + ": " + planner_status.message);
+  }
+
+  *out_plan = std::move(planned_query);
+  return Status::Ok("planned statement for runtime execution");
+}
+
 Status DatabaseEngine::Execute(std::string_view statement) {
   if (!startup_error_.empty()) {
     last_message_ = startup_error_;
@@ -475,6 +554,13 @@ Status DatabaseEngine::Execute(std::string_view statement) {
     return Status::Error(last_message_);
   }
 
+  planner::QueryPlan query_plan;
+  const Status plan_status = PlanStatementForExecution(parse_result.statement, &query_plan);
+  if (!plan_status.ok) {
+    last_message_ = plan_status.message;
+    return Status::Error(last_message_);
+  }
+
   if (std::holds_alternative<parser::CreateTableStatement>(parse_result.statement)) {
     const auto& create_statement = std::get<parser::CreateTableStatement>(parse_result.statement);
     const catalog::CatalogStatus create_status = catalog_.CreateTable(create_statement);
@@ -504,6 +590,10 @@ Status DatabaseEngine::Execute(std::string_view statement) {
 
   if (std::holds_alternative<parser::InsertStatement>(parse_result.statement)) {
     const auto& insert_statement = std::get<parser::InsertStatement>(parse_result.statement);
+    if (query_plan.maintain_primary_key_index) {
+      // Primary-key index maintenance wiring is introduced in a later Phase 5 increment.
+    }
+
     const catalog::CatalogStatus insert_status = catalog_.InsertRow(insert_statement);
     if (!insert_status.ok) {
       last_message_ = insert_status.code + ": " + insert_status.message;
@@ -531,6 +621,10 @@ Status DatabaseEngine::Execute(std::string_view statement) {
 
   if (std::holds_alternative<parser::SelectStatement>(parse_result.statement)) {
     const auto& select_statement = std::get<parser::SelectStatement>(parse_result.statement);
+    if (query_plan.access_path == planner::PlanAccessPath::PrimaryKeyIndexLookup) {
+      // Primary-key index lookup execution path is introduced in a later Phase 5 increment.
+    }
+
     const catalog::SelectResult select_result = catalog_.SelectAll(select_statement);
     if (!select_result.status.ok) {
       last_message_ = select_result.status.code + ": " + select_result.status.message;
@@ -582,6 +676,10 @@ Status DatabaseEngine::Execute(std::string_view statement) {
 
   if (std::holds_alternative<parser::UpdateStatement>(parse_result.statement)) {
     const auto& update_statement = std::get<parser::UpdateStatement>(parse_result.statement);
+    if (query_plan.access_path == planner::PlanAccessPath::PrimaryKeyIndexLookup) {
+      // Primary-key index lookup execution path is introduced in a later Phase 5 increment.
+    }
+
     const catalog::CatalogStatus update_status = catalog_.UpdateWhereEquals(update_statement);
     if (!update_status.ok) {
       last_message_ = update_status.code + ": " + update_status.message;
@@ -608,6 +706,10 @@ Status DatabaseEngine::Execute(std::string_view statement) {
   }
 
   const auto& delete_statement = std::get<parser::DeleteStatement>(parse_result.statement);
+  if (query_plan.access_path == planner::PlanAccessPath::PrimaryKeyIndexLookup) {
+    // Primary-key index lookup execution path is introduced in a later Phase 5 increment.
+  }
+
   const catalog::CatalogStatus delete_status = catalog_.DeleteWhereEquals(delete_statement);
   if (!delete_status.ok) {
     last_message_ = delete_status.code + ": " + delete_status.message;

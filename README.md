@@ -43,7 +43,7 @@ Current capabilities in place:
 - Phase 4 hardening: deterministic reopen-and-continue-insert stress coverage now validates multi-level index invariants and linked-leaf consistency across pager reopen boundaries.
 - Phase 4 integration coverage: primary-index tests now validate ordered traversal and point key lookup by joining B+ tree entries with table-store row payload decode paths.
 - Phase 5 kickoff: deterministic rule-based planner primitive now maps SELECT/UPDATE/DELETE to table-scan vs primary-key index-lookup paths from table metadata and tracks INSERT primary-index maintenance intent.
-- Phase 5 note: planner decisions are currently validated via unit tests and are not yet wired into the runtime executor path.
+- Phase 5 progress: runtime now invokes RulePlanner before statement execution dispatch, while index-backed execution paths still intentionally fall back to existing catalog/table-store handlers.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 

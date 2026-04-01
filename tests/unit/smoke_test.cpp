@@ -117,6 +117,21 @@ TEST(DatabaseEngineSmoke, RejectsUpdateWhereNonPrimaryKey) {
   EXPECT_EQ(update.message, "E2008: WHERE column must be PRIMARY KEY: name");
 }
 
+TEST(DatabaseEngineSmoke, PlannerRuntimeWiringPreservesCatalogPrimaryKeyValidation) {
+  atlasdb::DatabaseEngine engine;
+  ASSERT_TRUE(engine.Execute("CREATE TABLE logs (id INTEGER, message TEXT);").ok);
+  ASSERT_TRUE(engine.Execute("INSERT INTO logs VALUES (1, 'startup');").ok);
+
+  const atlasdb::Status update =
+      engine.Execute("UPDATE logs SET message = 'boot' WHERE id = 1;");
+  EXPECT_FALSE(update.ok);
+  EXPECT_EQ(update.message, "E2008: WHERE column must be PRIMARY KEY: id");
+
+  const atlasdb::Status deletion = engine.Execute("DELETE FROM logs WHERE id = 1;");
+  EXPECT_FALSE(deletion.ok);
+  EXPECT_EQ(deletion.message, "E2008: WHERE column must be PRIMARY KEY: id");
+}
+
 TEST(DatabaseEngineSmoke, RejectsEmptyStatement) {
   atlasdb::DatabaseEngine engine;
   const atlasdb::Status status = engine.Execute("   ");
