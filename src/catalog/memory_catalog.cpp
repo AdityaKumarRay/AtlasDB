@@ -20,7 +20,7 @@ constexpr std::size_t kNoPrimaryKey = std::numeric_limits<std::size_t>::max();
 constexpr std::size_t kColumnNotFound = std::numeric_limits<std::size_t>::max();
 constexpr std::uint8_t kLiteralTagInteger = 1U;
 constexpr std::uint8_t kLiteralTagText = 2U;
-constexpr std::uint32_t kCatalogSnapshotVersion = 1U;
+constexpr std::uint32_t kCatalogSnapshotVersion = 2U;
 constexpr std::array<std::uint8_t, 8> kCatalogSnapshotMagic = {
     static_cast<std::uint8_t>('A'),
     static_cast<std::uint8_t>('T'),
@@ -298,6 +298,65 @@ SelectResult MemoryCatalog::SelectAll(const parser::SelectStatement& statement) 
   return result;
 }
 
+CatalogStatus MemoryCatalog::CreateSecondaryIndex(std::string_view table_name,
+                                                  std::string_view index_name,
+                                                  std::string_view column_name) {
+  const std::string normalized_table_name = NormalizeIdentifier(table_name);
+  auto table_iter = tables_.find(normalized_table_name);
+  if (table_iter == tables_.end()) {
+    return CatalogStatus::Error("E2003", "table not found: " + std::string(table_name));
+  }
+
+  const std::string normalized_index_name = NormalizeIdentifier(index_name);
+  if (normalized_index_name.empty()) {
+    return CatalogStatus::Error("E2011", "secondary index name is empty");
+  }
+
+  Table& table = table_iter->second;
+  if (table.secondary_index_names.contains(normalized_index_name)) {
+    return CatalogStatus::Error("E2013", "secondary index already exists: " + std::string(index_name));
+  }
+
+  const std::size_t column_index = FindColumnIndex(table, column_name);
+  if (column_index == kColumnNotFound) {
+    return CatalogStatus::Error("E2012", "secondary index column not found: " + std::string(column_name));
+  }
+
+  const std::string normalized_column_name = NormalizeIdentifier(table.columns[column_index].name);
+  if (table.secondary_indexed_columns.contains(normalized_column_name)) {
+    return CatalogStatus::Error("E2014", "secondary index already exists on column: " +
+                                             table.columns[column_index].name);
+  }
+
+  table.secondary_indexes.push_back(
+      SecondaryIndexDefinition{std::string(index_name), table.columns[column_index].name});
+  table.secondary_index_names.insert(normalized_index_name);
+  table.secondary_indexed_columns.insert(normalized_column_name);
+
+  return CatalogStatus::Ok("created secondary index '" + std::string(index_name) + "' on '" +
+                           table.name + "." + table.columns[column_index].name + "'");
+}
+
+SecondaryIndexListResult MemoryCatalog::ListSecondaryIndexes(std::string_view table_name) const {
+  SecondaryIndexListResult result;
+
+  const std::string normalized_table_name = NormalizeIdentifier(table_name);
+  const auto table_iter = tables_.find(normalized_table_name);
+  if (table_iter == tables_.end()) {
+    result.status = CatalogStatus::Error("E2003", "table not found: " + std::string(table_name));
+    return result;
+  }
+
+  result.status = CatalogStatus::Ok("listed secondary indexes for table '" + table_iter->second.name + "'");
+  result.indexes = table_iter->second.secondary_indexes;
+  std::sort(result.indexes.begin(), result.indexes.end(),
+            [](const SecondaryIndexDefinition& lhs, const SecondaryIndexDefinition& rhs) {
+              return MemoryCatalog::NormalizeIdentifier(lhs.name) <
+                     MemoryCatalog::NormalizeIdentifier(rhs.name);
+            });
+  return result;
+}
+
 CatalogStatus MemoryCatalog::UpdateWhereEquals(const parser::UpdateStatement& statement) {
   const std::string normalized_table_name = NormalizeIdentifier(statement.table_name);
   auto table_iter = tables_.find(normalized_table_name);
@@ -445,6 +504,10 @@ CatalogStatus MemoryCatalog::Serialize(std::vector<std::uint8_t>* out_bytes) con
       return CatalogStatus::Error("E2020", "row count exceeds snapshot format limit");
     }
 
+    if (table.secondary_indexes.size() > static_cast<std::size_t>(std::numeric_limits<std::uint16_t>::max())) {
+      return CatalogStatus::Error("E2020", "secondary index count exceeds snapshot format limit");
+    }
+
     WriteUint16(&bytes, static_cast<std::uint16_t>(table.columns.size()));
     WriteUint32(&bytes, static_cast<std::uint32_t>(table.rows.size()));
 
@@ -455,6 +518,24 @@ CatalogStatus MemoryCatalog::Serialize(std::vector<std::uint8_t>* out_bytes) con
 
       WriteUint8(&bytes, static_cast<std::uint8_t>(column.type));
       WriteUint8(&bytes, static_cast<std::uint8_t>(column.primary_key ? 1U : 0U));
+    }
+
+    std::vector<SecondaryIndexDefinition> secondary_indexes = table.secondary_indexes;
+    std::sort(secondary_indexes.begin(), secondary_indexes.end(),
+              [](const SecondaryIndexDefinition& lhs, const SecondaryIndexDefinition& rhs) {
+                return MemoryCatalog::NormalizeIdentifier(lhs.name) <
+                       MemoryCatalog::NormalizeIdentifier(rhs.name);
+              });
+
+    WriteUint16(&bytes, static_cast<std::uint16_t>(secondary_indexes.size()));
+    for (const SecondaryIndexDefinition& secondary_index : secondary_indexes) {
+      if (!WriteSizedString16(&bytes, secondary_index.name)) {
+        return CatalogStatus::Error("E2020", "secondary index name exceeds snapshot format limit");
+      }
+
+      if (!WriteSizedString16(&bytes, secondary_index.column_name)) {
+        return CatalogStatus::Error("E2020", "secondary index column name exceeds snapshot format limit");
+      }
     }
 
     for (const std::vector<parser::ValueLiteral>& row : table.rows) {
@@ -505,7 +586,7 @@ CatalogStatus MemoryCatalog::Deserialize(const std::vector<std::uint8_t>& bytes)
     return CatalogStatus::Error("E2021", "catalog snapshot is truncated");
   }
 
-  if (version != kCatalogSnapshotVersion) {
+  if (version != 1U && version != kCatalogSnapshotVersion) {
     return CatalogStatus::Error("E2022", "unsupported catalog snapshot version");
   }
 
@@ -553,9 +634,41 @@ CatalogStatus MemoryCatalog::Deserialize(const std::vector<std::uint8_t>& bytes)
       columns.push_back(parser::ColumnDefinition{column_name, type, primary_key_byte != 0U});
     }
 
+    std::vector<SecondaryIndexDefinition> secondary_indexes;
+    if (version >= 2U) {
+      std::uint16_t secondary_index_count = 0U;
+      if (!ReadUint16(bytes, &offset, &secondary_index_count)) {
+        return CatalogStatus::Error("E2021", "catalog snapshot secondary index metadata is truncated");
+      }
+
+      secondary_indexes.reserve(static_cast<std::size_t>(secondary_index_count));
+      for (std::uint16_t secondary_index_index = 0U;
+           secondary_index_index < secondary_index_count;
+           ++secondary_index_index) {
+        std::string secondary_index_name;
+        std::string secondary_index_column_name;
+        if (!ReadSizedString16(bytes, &offset, &secondary_index_name) ||
+            !ReadSizedString16(bytes, &offset, &secondary_index_column_name)) {
+          return CatalogStatus::Error("E2021", "catalog snapshot secondary index definition is truncated");
+        }
+
+        secondary_indexes.push_back(
+            SecondaryIndexDefinition{std::move(secondary_index_name),
+                                     std::move(secondary_index_column_name)});
+      }
+    }
+
     const CatalogStatus create_status = CreateTable(parser::CreateTableStatement{table_name, columns});
     if (!create_status.ok) {
       return CatalogStatus::Error("E2024", "invalid table definition in catalog snapshot");
+    }
+
+    for (const SecondaryIndexDefinition& secondary_index : secondary_indexes) {
+      const CatalogStatus index_status =
+          CreateSecondaryIndex(table_name, secondary_index.name, secondary_index.column_name);
+      if (!index_status.ok) {
+        return CatalogStatus::Error("E2024", "invalid secondary index definition in catalog snapshot");
+      }
     }
 
     for (std::uint32_t row_index = 0U; row_index < row_count; ++row_index) {
@@ -623,6 +736,12 @@ std::vector<TableSnapshot> MemoryCatalog::SnapshotTables() const {
     TableSnapshot snapshot;
     snapshot.name = table.name;
     snapshot.columns = table.columns;
+    snapshot.secondary_indexes = table.secondary_indexes;
+    std::sort(snapshot.secondary_indexes.begin(), snapshot.secondary_indexes.end(),
+              [](const SecondaryIndexDefinition& lhs, const SecondaryIndexDefinition& rhs) {
+                return MemoryCatalog::NormalizeIdentifier(lhs.name) <
+                       MemoryCatalog::NormalizeIdentifier(rhs.name);
+              });
     snapshot.rows = table.rows;
     snapshots.push_back(std::move(snapshot));
   }

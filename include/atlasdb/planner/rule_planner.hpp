@@ -23,9 +23,15 @@ enum class PlanAccessPath {
 };
 
 struct TablePlanningMetadata {
+  struct SecondaryIndexMetadata {
+    std::string index_name;
+    std::string column_name;
+  };
+
   std::string table_name;
   std::string primary_key_column;
   bool has_primary_key_index{false};
+  std::vector<SecondaryIndexMetadata> secondary_indexes;
 };
 
 struct QueryPlan {
@@ -33,6 +39,7 @@ struct QueryPlan {
   PlanAccessPath access_path{PlanAccessPath::None};
   std::string table_name;
   bool maintain_primary_key_index{false};
+  bool maintain_secondary_indexes{false};
 };
 
 struct PlannerStatus {

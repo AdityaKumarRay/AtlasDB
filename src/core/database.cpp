@@ -459,6 +459,15 @@ std::vector<planner::TablePlanningMetadata> DatabaseEngine::BuildPlanningMetadat
 
     // Primary-key index maintenance wiring is introduced in a later Phase 5 increment.
     metadata.has_primary_key_index = false;
+
+    for (const catalog::SecondaryIndexDefinition& secondary_index : table.secondary_indexes) {
+      metadata.secondary_indexes.push_back(
+          planner::TablePlanningMetadata::SecondaryIndexMetadata{
+              secondary_index.name,
+              secondary_index.column_name,
+          });
+    }
+
     metadata_list.push_back(std::move(metadata));
   }
 
@@ -592,6 +601,10 @@ Status DatabaseEngine::Execute(std::string_view statement) {
     const auto& insert_statement = std::get<parser::InsertStatement>(parse_result.statement);
     if (query_plan.maintain_primary_key_index) {
       // Primary-key index maintenance wiring is introduced in a later Phase 5 increment.
+    }
+
+    if (query_plan.maintain_secondary_indexes) {
+      // Secondary-index maintenance wiring is introduced in a later Phase 5 increment.
     }
 
     const catalog::CatalogStatus insert_status = catalog_.InsertRow(insert_statement);

@@ -27,9 +27,20 @@ struct SelectResult {
   std::vector<std::vector<parser::ValueLiteral>> rows;
 };
 
+struct SecondaryIndexDefinition {
+  std::string name;
+  std::string column_name;
+};
+
+struct SecondaryIndexListResult {
+  CatalogStatus status;
+  std::vector<SecondaryIndexDefinition> indexes;
+};
+
 struct TableSnapshot {
   std::string name;
   std::vector<parser::ColumnDefinition> columns;
+  std::vector<SecondaryIndexDefinition> secondary_indexes;
   std::vector<std::vector<parser::ValueLiteral>> rows;
 };
 
@@ -40,6 +51,10 @@ class MemoryCatalog {
   [[nodiscard]] CatalogStatus CreateTable(const parser::CreateTableStatement& statement);
   [[nodiscard]] CatalogStatus InsertRow(const parser::InsertStatement& statement);
   [[nodiscard]] SelectResult SelectAll(const parser::SelectStatement& statement) const;
+  [[nodiscard]] CatalogStatus CreateSecondaryIndex(std::string_view table_name,
+                                                   std::string_view index_name,
+                                                   std::string_view column_name);
+  [[nodiscard]] SecondaryIndexListResult ListSecondaryIndexes(std::string_view table_name) const;
   [[nodiscard]] CatalogStatus UpdateWhereEquals(const parser::UpdateStatement& statement);
   [[nodiscard]] CatalogStatus DeleteWhereEquals(const parser::DeleteStatement& statement);
   [[nodiscard]] CatalogStatus Serialize(std::vector<std::uint8_t>* out_bytes) const;
@@ -56,6 +71,9 @@ class MemoryCatalog {
     std::size_t primary_key_index;
     std::vector<std::vector<parser::ValueLiteral>> rows;
     std::unordered_set<std::string> primary_key_values;
+    std::vector<SecondaryIndexDefinition> secondary_indexes;
+    std::unordered_set<std::string> secondary_index_names;
+    std::unordered_set<std::string> secondary_indexed_columns;
   };
 
   [[nodiscard]] static std::string NormalizeIdentifier(std::string_view identifier);

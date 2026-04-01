@@ -55,6 +55,68 @@ TEST(MemoryCatalog, RejectsDuplicateTableNamesIgnoringCase) {
   EXPECT_EQ(second.message, "table already exists: Users");
 }
 
+TEST(MemoryCatalog, CreatesSecondaryIndexForKnownTableColumn) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+
+  const atlasdb::catalog::CatalogStatus create_index =
+      catalog.CreateSecondaryIndex("users", "idx_users_name", "name");
+  ASSERT_TRUE(create_index.ok);
+  EXPECT_EQ(create_index.message, "created secondary index 'idx_users_name' on 'users.name'");
+
+  const atlasdb::catalog::SecondaryIndexListResult list_result =
+      catalog.ListSecondaryIndexes("users");
+  ASSERT_TRUE(list_result.status.ok);
+  ASSERT_EQ(list_result.indexes.size(), 1U);
+  EXPECT_EQ(list_result.indexes[0].name, "idx_users_name");
+  EXPECT_EQ(list_result.indexes[0].column_name, "name");
+}
+
+TEST(MemoryCatalog, RejectsSecondaryIndexForUnknownTable) {
+  atlasdb::catalog::MemoryCatalog catalog;
+
+  const atlasdb::catalog::CatalogStatus create_index =
+      catalog.CreateSecondaryIndex("ghost", "idx_ghost_name", "name");
+  ASSERT_FALSE(create_index.ok);
+  EXPECT_EQ(create_index.code, "E2003");
+  EXPECT_EQ(create_index.message, "table not found: ghost");
+}
+
+TEST(MemoryCatalog, RejectsSecondaryIndexForUnknownColumn) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+
+  const atlasdb::catalog::CatalogStatus create_index =
+      catalog.CreateSecondaryIndex("users", "idx_users_email", "email");
+  ASSERT_FALSE(create_index.ok);
+  EXPECT_EQ(create_index.code, "E2012");
+  EXPECT_EQ(create_index.message, "secondary index column not found: email");
+}
+
+TEST(MemoryCatalog, RejectsDuplicateSecondaryIndexNameIgnoringCase) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+  ASSERT_TRUE(catalog.CreateSecondaryIndex("users", "idx_users_name", "name").ok);
+
+  const atlasdb::catalog::CatalogStatus duplicate_name =
+      catalog.CreateSecondaryIndex("users", "IDX_USERS_NAME", "id");
+  ASSERT_FALSE(duplicate_name.ok);
+  EXPECT_EQ(duplicate_name.code, "E2013");
+  EXPECT_EQ(duplicate_name.message, "secondary index already exists: IDX_USERS_NAME");
+}
+
+TEST(MemoryCatalog, RejectsDuplicateSecondaryIndexColumn) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+  ASSERT_TRUE(catalog.CreateSecondaryIndex("users", "idx_users_name", "name").ok);
+
+  const atlasdb::catalog::CatalogStatus duplicate_column =
+      catalog.CreateSecondaryIndex("users", "idx_users_name_dup", "name");
+  ASSERT_FALSE(duplicate_column.ok);
+  EXPECT_EQ(duplicate_column.code, "E2014");
+  EXPECT_EQ(duplicate_column.message, "secondary index already exists on column: name");
+}
+
 TEST(MemoryCatalog, RejectsValueCountMismatch) {
   atlasdb::catalog::MemoryCatalog catalog;
   ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
@@ -224,6 +286,45 @@ TEST(MemoryCatalog, SnapshotRoundTripPreservesRows) {
   EXPECT_EQ(std::get<std::string>(selected.rows[1][1].value), "bob");
 }
 
+TEST(MemoryCatalog, SnapshotRoundTripPreservesSecondaryIndexes) {
+  atlasdb::catalog::MemoryCatalog catalog;
+  ASSERT_TRUE(catalog.CreateTable(UsersTableStatement()).ok);
+  ASSERT_TRUE(catalog.CreateSecondaryIndex("users", "idx_users_name", "name").ok);
+
+  std::vector<std::uint8_t> bytes;
+  ASSERT_TRUE(catalog.Serialize(&bytes).ok);
+
+  atlasdb::catalog::MemoryCatalog restored;
+  ASSERT_TRUE(restored.Deserialize(bytes).ok);
+
+  const atlasdb::catalog::SecondaryIndexListResult list_result =
+      restored.ListSecondaryIndexes("users");
+  ASSERT_TRUE(list_result.status.ok);
+  ASSERT_EQ(list_result.indexes.size(), 1U);
+  EXPECT_EQ(list_result.indexes[0].name, "idx_users_name");
+  EXPECT_EQ(list_result.indexes[0].column_name, "name");
+}
+
+TEST(MemoryCatalog, SnapshotDeserializeSupportsLegacyVersionWithoutSecondaryIndexes) {
+  const std::vector<std::uint8_t> bytes = {
+      static_cast<std::uint8_t>('A'),
+      static_cast<std::uint8_t>('T'),
+      static_cast<std::uint8_t>('L'),
+      static_cast<std::uint8_t>('C'),
+      static_cast<std::uint8_t>('A'),
+      static_cast<std::uint8_t>('T'),
+      static_cast<std::uint8_t>('1'),
+      0U,
+      1U, 0U, 0U, 0U,
+      0U, 0U, 0U, 0U,
+  };
+
+  atlasdb::catalog::MemoryCatalog catalog;
+  const atlasdb::catalog::CatalogStatus deserialize = catalog.Deserialize(bytes);
+  ASSERT_TRUE(deserialize.ok);
+  EXPECT_FALSE(catalog.HasTable("users"));
+}
+
 TEST(MemoryCatalog, SnapshotSerializeRejectsNullOutputBuffer) {
   atlasdb::catalog::MemoryCatalog catalog;
   const atlasdb::catalog::CatalogStatus serialize = catalog.Serialize(nullptr);
@@ -241,7 +342,7 @@ TEST(MemoryCatalog, SnapshotDeserializeRejectsUnsupportedVersion) {
   ASSERT_TRUE(catalog.Serialize(&bytes).ok);
   ASSERT_GE(bytes.size(), 12U);
 
-  bytes[8] = 2U;
+  bytes[8] = 3U;
   bytes[9] = 0U;
   bytes[10] = 0U;
   bytes[11] = 0U;

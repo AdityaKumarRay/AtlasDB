@@ -36,6 +36,7 @@ Current implemented execution path:
 
 - parser -> in-memory catalog execution for CREATE/INSERT/SELECT/UPDATE/DELETE,
 - planning layer now includes a deterministic RulePlanner primitive for table-scan vs primary-key index-lookup path selection from statement + table metadata,
+- catalog layer now includes deterministic secondary-index metadata definitions that serialize with snapshots and feed planner metadata,
 - optional persistence mode (`DatabaseEngine(path)`) wires mutating statements to pager-backed catalog snapshots,
 - startup reloads latest snapshot using page-0 metadata (`catalog_root_page`, `schema_epoch`).
 - storage primitives now include typed row codec plus slotted row-page append/read/count layout utilities.
@@ -53,6 +54,7 @@ Current implemented execution path:
 - index layer now includes deterministic internal split logic that emits promoted separator metadata for upward propagation.
 - index layer now includes deterministic pager-backed BtreeIndex orchestration for insert/find, recursive split propagation, and root growth.
 - runtime now invokes RulePlanner before statement execution dispatch while execution paths still intentionally use existing catalog/table-store handlers until index-backed dispatch slices land.
+- RulePlanner now also surfaces deterministic INSERT maintenance intent for secondary-index metadata while physical secondary-index maintenance wiring remains a later Phase 5 slice.
 
 ## Invariants
 

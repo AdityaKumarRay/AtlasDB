@@ -11,8 +11,15 @@ namespace {
 
 std::vector<atlasdb::planner::TablePlanningMetadata> MetadataForUsers(bool has_primary_index) {
   return {
-      {"users", "id", has_primary_index},
+      {"users", "id", has_primary_index, {}},
   };
+}
+
+std::vector<atlasdb::planner::TablePlanningMetadata> MetadataForUsersWithSecondaryIndex(
+    bool has_primary_index) {
+  atlasdb::planner::TablePlanningMetadata metadata{"users", "id", has_primary_index, {}};
+  metadata.secondary_indexes.push_back({"idx_users_name", "name"});
+  return {metadata};
 }
 
 TEST(RulePlanner, PlansCreateTableWithDirectDdlPath) {
@@ -51,6 +58,27 @@ TEST(RulePlanner, PlansInsertAndTracksPrimaryIndexMaintenanceIntent) {
   ASSERT_TRUE(status.ok);
   EXPECT_EQ(plan.operation, atlasdb::planner::PlanOperation::Insert);
   EXPECT_TRUE(plan.maintain_primary_key_index);
+  EXPECT_FALSE(plan.maintain_secondary_indexes);
+}
+
+TEST(RulePlanner, PlansInsertAndTracksSecondaryIndexMaintenanceIntent) {
+  atlasdb::planner::RulePlanner planner;
+  atlasdb::planner::QueryPlan plan;
+
+  const atlasdb::parser::InsertStatement statement{
+      "users",
+      {
+          atlasdb::parser::ValueLiteral{1},
+          atlasdb::parser::ValueLiteral{std::string("alice")},
+      },
+  };
+
+  const atlasdb::planner::PlannerStatus status =
+      planner.Plan(statement, MetadataForUsersWithSecondaryIndex(true), &plan);
+  ASSERT_TRUE(status.ok);
+  EXPECT_EQ(plan.operation, atlasdb::planner::PlanOperation::Insert);
+  EXPECT_TRUE(plan.maintain_primary_key_index);
+  EXPECT_TRUE(plan.maintain_secondary_indexes);
 }
 
 TEST(RulePlanner, PlansSelectAsTableScan) {

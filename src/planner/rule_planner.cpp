@@ -68,6 +68,7 @@ PlannerStatus RulePlanner::Plan(const parser::Statement& statement,
         FindTableMetadata(insert_statement.table_name, table_metadata);
     if (metadata != nullptr) {
       plan.maintain_primary_key_index = metadata->has_primary_key_index;
+      plan.maintain_secondary_indexes = !metadata->secondary_indexes.empty();
     }
 
     *out_plan = std::move(plan);
