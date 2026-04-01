@@ -29,6 +29,7 @@ add_library(atlasdb STATIC
   src/catalog/memory_catalog.cpp
   src/core/database.cpp
   src/parser/parser.cpp
+  src/planner/rule_planner.cpp
   src/storage/file_header.cpp
   src/storage/pager.cpp
   src/storage/page.cpp

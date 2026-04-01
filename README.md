@@ -12,8 +12,8 @@ Phase-wise progress:
 - [x] Phase 1: Deterministic parser + diagnostics for CREATE/INSERT/SELECT/UPDATE/DELETE.
 - [x] Phase 2: In-memory catalog execution for CRUD with deterministic runtime checks.
 - [x] Phase 3: Pager-backed persistence foundations and page-native table storage primitives.
-- [-] Phase 4: B+ tree primary index + cursor abstraction.
-- [ ] Phase 5: Secondary indexes, planner, prepared statements.
+- [x] Phase 4: B+ tree primary index + cursor abstraction.
+- [-] Phase 5: Secondary indexes, planner, prepared statements.
 - [ ] Phase 6: Transactions, WAL, checkpoint, recovery.
 - [ ] Phase 7: Hardening, benchmarks, and release-readiness polish.
 
@@ -42,6 +42,8 @@ Current capabilities in place:
 - Phase 4 hardening: deterministic seeded random-insert stress test now validates subtree key-range invariants and linked-leaf traversal consistency under heavy split workloads.
 - Phase 4 hardening: deterministic reopen-and-continue-insert stress coverage now validates multi-level index invariants and linked-leaf consistency across pager reopen boundaries.
 - Phase 4 integration coverage: primary-index tests now validate ordered traversal and point key lookup by joining B+ tree entries with table-store row payload decode paths.
+- Phase 5 kickoff: deterministic rule-based planner primitive now maps SELECT/UPDATE/DELETE to table-scan vs primary-key index-lookup paths from table metadata and tracks INSERT primary-index maintenance intent.
+- Phase 5 note: planner decisions are currently validated via unit tests and are not yet wired into the runtime executor path.
 - Optional pager-backed catalog snapshot persistence for CREATE/INSERT/UPDATE/DELETE when opening the engine with a database file path.
 - GitHub Actions CI matrix for Windows and Linux (Debug and Release).
 
@@ -179,6 +181,12 @@ B+ tree index errors:
 - `E5402` unknown root/tree node type,
 - `E5403` index root page id is invalid/uninitialized,
 - `E5405` index traversal integrity bound exceeded.
+
+Rule planner errors:
+
+- `E6100` null pointer for required output/argument,
+- `E6102` table metadata not found for planner,
+- `E6103` table metadata missing primary-key column.
 
 ## Build
 

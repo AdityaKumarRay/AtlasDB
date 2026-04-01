@@ -18,6 +18,7 @@ add_executable(atlasdb_unit_smoke
   unit/btree_leaf_node_test.cpp
   unit/memory_catalog_test.cpp
   unit/parser_test.cpp
+  unit/rule_planner_test.cpp
   unit/smoke_test.cpp
   unit/storage_file_header_test.cpp
   unit/storage_pager_test.cpp

@@ -35,6 +35,7 @@ AtlasDB uses a layered architecture with explicit boundaries.
 Current implemented execution path:
 
 - parser -> in-memory catalog execution for CREATE/INSERT/SELECT/UPDATE/DELETE,
+- planning layer now includes a deterministic RulePlanner primitive for table-scan vs primary-key index-lookup path selection from statement + table metadata,
 - optional persistence mode (`DatabaseEngine(path)`) wires mutating statements to pager-backed catalog snapshots,
 - startup reloads latest snapshot using page-0 metadata (`catalog_root_page`, `schema_epoch`).
 - storage primitives now include typed row codec plus slotted row-page append/read/count layout utilities.
@@ -51,6 +52,7 @@ Current implemented execution path:
 - index layer now includes deterministic internal separator insertion and split-root initialization helpers for parent update paths.
 - index layer now includes deterministic internal split logic that emits promoted separator metadata for upward propagation.
 - index layer now includes deterministic pager-backed BtreeIndex orchestration for insert/find, recursive split propagation, and root growth.
+- planner module is currently unit-tested and not yet connected to runtime execution dispatch.
 
 ## Invariants
 

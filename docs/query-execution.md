@@ -8,6 +8,7 @@
    - Resolve table and column names using catalog metadata.
 3. Plan
    - Select execution path: table scan or index scan.
+   - Current module: RulePlanner deterministically selects access path from parsed statement + table metadata.
 4. Execute
    - Run statement handlers and return deterministic runtime status.
 5. Persist
@@ -23,6 +24,8 @@
 - In persistence mode, INSERT now appends row payloads into table-store pages after catalog+snapshot success.
 - In persistence mode, UPDATE now rebuilds only the updated table-store from catalog rows after catalog+snapshot success.
 - In persistence mode, DELETE now rebuilds only the deleted table-store from catalog rows after catalog+snapshot success.
+- RulePlanner now supports deterministic access-path planning for SELECT/UPDATE/DELETE and index-maintenance intent for INSERT.
+- RulePlanner decisions are currently unit-tested and not yet wired into runtime execution dispatch.
 - Table and column identifiers are resolved case-insensitively.
 - Runtime checks currently enforced:
   - duplicate table names,
@@ -52,6 +55,7 @@ Persistence note:
 - index-page primitives now include deterministic B+ tree leaf/internal node layouts, linked-leaf cursor traversal, leaf split metadata foundations, internal separator insertion/root-split initialization helpers, and internal split promotion metadata foundations,
 - index access now also includes deterministic pager-backed BtreeIndex insert/find orchestration with recursive split propagation and root growth,
 - integration coverage now validates primary-index ordered traversal and point-key lookup by decoding table-store rows from index-provided row locations,
+- planning now also includes a deterministic RulePlanner primitive for table-scan vs primary-key index-lookup path selection,
 - table/index page-oriented physical operators are still planned.
 
 ## Determinism Requirements
